@@ -15,6 +15,41 @@ docker compose ps  # All should show "Up" and db should be "healthy"
 
 ---
 
+## 0. Create Test Admin User
+
+### Option A: Via API + SQL
+```bash
+# Register user
+curl -X POST http://localhost:9000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"Admin123!"}'
+
+# Promote to admin
+docker compose exec db psql -U postgres -d flaskdb \
+  -c "UPDATE \"user\" SET role='admin' WHERE email='admin@example.com';"
+```
+
+### Option B: Via Seed Script
+```bash
+docker compose exec api python scripts/seed_admin.py
+```
+
+### Option C: Custom Credentials
+```bash
+ADMIN_EMAIL=myemail@example.com ADMIN_PASSWORD=MySecurePass123 \
+  docker compose exec api python scripts/seed_admin.py
+```
+
+### Default Test Credentials
+| Field | Value |
+|-------|-------|
+| Email | `admin@example.com` |
+| Password | `Admin123!` |
+| Role | `admin` |
+| UI Login | http://localhost:3001/ui/login |
+
+---
+
 ## 1. Smoke Tests
 
 ### 1.1 Services Running
