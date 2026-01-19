@@ -166,3 +166,13 @@
   text-align: center;
   padding: var(--spacing-lg);
 }
+
+.error-banner {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}

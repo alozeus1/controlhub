@@ -6,28 +6,55 @@ import { RoleBadge } from "../components/ui/Badge";
 import { PageLoader } from "../components/ui/Spinner";
 import "./Dashboard.css";
 
+const safeGet = (obj, path, defaultValue = 0) => {
+  try {
+    const keys = path.split(".");
+    let result = obj;
+    for (const key of keys) {
+      result = result?.[key];
+    }
+    return result ?? defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const safeArray = (val) => {
+  if (Array.isArray(val)) return val;
+  return [];
+};
+
 export default function Dashboard() {
   const [stats, setStats] = useState({ users: 0, uploads: 0, jobs: 0, recentLogs: [] });
   const [loading, setLoading] = useState(true);
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const [error, setError] = useState(null);
+
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "{}");
+  } catch {
+    user = {};
+  }
 
   useEffect(() => {
     async function load() {
       try {
         const [usersRes, uploadsRes, jobsRes, logsRes] = await Promise.all([
-          api.get("/admin/users?page_size=1"),
-          api.get("/admin/uploads?page_size=1"),
-          api.get("/admin/jobs?page_size=1"),
-          api.get("/admin/audit-logs?page_size=5"),
+          api.get("/admin/users?page_size=1").catch(() => ({ data: {} })),
+          api.get("/admin/uploads?page_size=1").catch(() => ({ data: {} })),
+          api.get("/admin/jobs?page_size=1").catch(() => ({ data: {} })),
+          api.get("/admin/audit-logs?page_size=5").catch(() => ({ data: {} })),
         ]);
         setStats({
-          users: usersRes.data.total || 0,
-          uploads: uploadsRes.data.total || 0,
-          jobs: jobsRes.data.total || 0,
-          recentLogs: logsRes.data.items || [],
+          users: safeGet(usersRes, "data.total", 0),
+          uploads: safeGet(uploadsRes, "data.total", 0),
+          jobs: safeGet(jobsRes, "data.total", 0),
+          recentLogs: safeArray(safeGet(logsRes, "data.items", [])),
         });
+        setError(null);
       } catch (err) {
         console.error("Failed to load stats:", err);
+        setError("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
@@ -37,6 +64,8 @@ export default function Dashboard() {
 
   if (loading) return <PageLoader message="Loading dashboard..." />;
 
+  const recentLogs = safeArray(stats.recentLogs);
+
   return (
     <div className="dashboard-page">
       <div className="page-header">
@@ -45,6 +74,12 @@ export default function Dashboard() {
           <p className="page-subtitle">Welcome back, {user.email?.split("@")[0] || "User"}</p>
         </div>
       </div>
+
+      {error && (
+        <div className="error-banner">
+          {error}
+        </div>
+      )}
 
       <div className="stats-grid">
         <Link to="/ui/users" className="stat-card">
@@ -81,11 +116,11 @@ export default function Dashboard() {
         <Card>
           <CardHeader title="Recent Activity" subtitle="Latest system actions" />
           <CardBody>
-            {stats.recentLogs.length === 0 ? (
+            {recentLogs.length === 0 ? (
               <p className="empty-text">No recent activity</p>
             ) : (
               <div className="activity-list">
-                {stats.recentLogs.map((log) => (
+                {recentLogs.map((log) => (
                   <div key={log.id} className="activity-item">
                     <div className="activity-icon">
                       {log.action.includes("login") ? "🔑" :
