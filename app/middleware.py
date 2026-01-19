@@ -3,7 +3,6 @@ import json
 import time
 import uuid
 from flask import request, g
-from functools import wraps
 
 
 class JSONFormatter(logging.Formatter):
@@ -32,11 +31,11 @@ class JSONFormatter(logging.Formatter):
 def setup_logging(app):
     handler = logging.StreamHandler()
     handler.setFormatter(JSONFormatter())
-    
+
     app.logger.handlers = []
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
-    
+
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
     logging.getLogger("gunicorn.error").handlers = []
     logging.getLogger("gunicorn.error").addHandler(handler)
@@ -54,7 +53,7 @@ def init_request_logging(app):
     def after_request(response):
         duration_ms = round((time.time() - g.start_time) * 1000, 2)
         response.headers["X-Request-ID"] = g.request_id
-        
+
         if request.path != "/healthz":
             app.logger.info(
                 "Request completed",

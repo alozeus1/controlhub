@@ -11,4 +11,7 @@ redis
 rq
 Flask-JWT-Extended==4.6.0
 requests
+pytest
+pytest-cov
+flake8
 

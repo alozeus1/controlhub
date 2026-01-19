@@ -1,16 +1,46 @@
 import os
+import sys
+
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
     ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
+
+    # Security keys - required in production, safe defaults only for dev
+    SECRET_KEY = os.environ.get("SECRET_KEY")
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
     # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "super-secret-jwt-key")
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
 
+    @classmethod
+    def validate(cls):
+        """Validate required config in production."""
+        is_prod = cls.ENVIRONMENT == "production"
+
+        if is_prod:
+            missing = []
+            if not cls.SECRET_KEY:
+                missing.append("SECRET_KEY")
+            if not cls.JWT_SECRET_KEY:
+                missing.append("JWT_SECRET_KEY")
+            if not cls.SQLALCHEMY_DATABASE_URI:
+                missing.append("SQLALCHEMY_DATABASE_URI")
+
+            if missing:
+                print(f"FATAL: Missing required env vars for production: {', '.join(missing)}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            # Dev defaults - insecure but convenient
+            if not cls.SECRET_KEY:
+                cls.SECRET_KEY = "dev-secret-key-not-for-production"
+            if not cls.JWT_SECRET_KEY:
+                cls.JWT_SECRET_KEY = "dev-jwt-key-not-for-production"
+
+
 def get_config():
+    Config.validate()
     return Config()

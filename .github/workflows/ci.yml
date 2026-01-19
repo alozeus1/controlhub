@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install linting tools
+        run: pip install flake8
+
+      - name: Run flake8
+        run: flake8 app/ tests/ --max-line-length=120 --ignore=E501,W503,E302,F401,E722,W292
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests (SQLite for CI)
+        env:
+          SQLALCHEMY_DATABASE_URI: sqlite:///:memory:
+          FLASK_APP: wsgi.py
+          FLASK_ENV: testing
+        run: pytest tests/ -v --cov=app --cov-report=term-missing
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile.api -t flask-app:test .
+
+      - name: Verify image runs
+        run: |
+          docker run -d --name test-container -e SQLALCHEMY_DATABASE_URI=sqlite:// -e FLASK_APP=wsgi.py flask-app:test sleep 30
+          docker exec test-container python -c "from app import create_app; app = create_app(); print('App created successfully')"
+          docker stop test-container
