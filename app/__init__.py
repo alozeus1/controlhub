@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from config import get_config
 from app.routes.ui import ui_bp
 from app.extensions import db, migrate
@@ -12,6 +13,9 @@ def create_app():
     app.config.from_object(get_config())
 
     app.secret_key = "supersecret"  # add this for session login token
+
+    # CORS for local development (UI on :3001, API on :9000)
+    CORS(app, origins=["http://localhost:3001", "http://127.0.0.1:3001"])
 
     init_request_logging(app)
     jwt.init_app(app)
