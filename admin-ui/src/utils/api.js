@@ -1,10 +1,12 @@
-// Choose API base depending on environment
-// If Docker gives REACT_APP_API_URL → use it
-// Otherwise fallback to localhost for browser usage
-const API_BASE =
-  process.env.REACT_APP_API_URL || "http://localhost:9000";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:9000";
 
-// Shared request wrapper
+class ApiError extends Error {
+  constructor(message, response) {
+    super(message);
+    this.response = response;
+  }
+}
+
 async function request(method, path, body = null) {
   const token = localStorage.getItem("token");
 
@@ -25,23 +27,30 @@ async function request(method, path, body = null) {
     res = await fetch(`${API_BASE}${path}`, options);
   } catch (err) {
     console.error("API unreachable:", err);
-    throw new Error("Unable to connect to API.");
+    throw new ApiError("Unable to connect to API.", { data: { error: "Network error" } });
   }
 
-  // Auto-logout on expired/invalid token
+  const data = await res.json();
+
   if (res.status === 401) {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     window.location.href = "/ui/login";
-    return null;
+    return { data: null };
   }
 
-  return res.json();
+  if (!res.ok) {
+    throw new ApiError(data.error || "Request failed", { data, status: res.status });
+  }
+
+  return { data };
 }
 
 const api = {
   get: (path) => request("GET", path),
   post: (path, body) => request("POST", path, body),
   put: (path, body) => request("PUT", path, body),
+  patch: (path, body) => request("PATCH", path, body),
   delete: (path) => request("DELETE", path),
 };
 

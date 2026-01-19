@@ -1,23 +1,177 @@
 .topnav {
-  margin-left: 240px;
-  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--topnav-height);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: rgba(0, 20, 30, 0.8);
-  border-bottom: 1px solid #00eaff;
-  box-shadow: 0 0 15px #00eaff;
+  justify-content: space-between;
+  padding: 0 var(--spacing-xl);
+  z-index: 40;
 }
 
-.breadcrumbs {
-  color: #00eaff;
-  font-weight: bold;
+.topnav-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
-.user-badge {
-  padding: 8px 20px;
-  border: 1px solid #00eaff;
-  border-radius: 20px;
-  background: rgba(0, 255, 255, 0.1);
-  color: #00eaff;
+.topnav-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.topnav-breadcrumb-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.topnav-breadcrumb-link:hover {
+  color: var(--color-text-primary);
+}
+
+.topnav-breadcrumb-separator {
+  color: var(--color-text-muted);
+}
+
+.topnav-breadcrumb-current {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.topnav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.topnav-env-badge {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.topnav-env-badge.dev {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.topnav-env-badge.staging {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.topnav-env-badge.prod {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.topnav-user {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.topnav-user:hover {
+  background: var(--color-bg-hover);
+}
+
+.topnav-user-avatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.topnav-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.topnav-user-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.topnav-user-role {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.topnav-dropdown {
+  position: relative;
+}
+
+.topnav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--spacing-xs);
+  min-width: 180px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all var(--transition-fast);
+}
+
+.topnav-dropdown.open .topnav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.topnav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
+}
+
+.topnav-dropdown-item:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.topnav-dropdown-item.danger {
+  color: var(--color-error);
+}
+
+.topnav-dropdown-item.danger:hover {
+  background: var(--color-error-bg);
+}
+
+.topnav-dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--spacing-xs) 0;
 }
