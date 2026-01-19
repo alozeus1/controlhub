@@ -2,6 +2,7 @@ from flask import Flask
 from config import get_config
 from app.routes.ui import ui_bp
 from app.extensions import db, migrate
+from app.middleware import init_request_logging
 from flask_jwt_extended import JWTManager
 
 jwt = JWTManager()
@@ -12,6 +13,7 @@ def create_app():
 
     app.secret_key = "supersecret"  # add this for session login token
 
+    init_request_logging(app)
     jwt.init_app(app)
     db.init_app(app)
     migrate.init_app(app, db)
