@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models import User, FileUpload, Job, ROLE_LEVELS
+from app.models import User, FileUpload, Job, AuditLog, ROLE_LEVELS
 from app.extensions import db
 from app.utils.rbac import (
     require_role,
@@ -291,3 +291,82 @@ def list_jobs():
         "page_size": pagination.per_page,
         "pages": pagination.pages,
     })
+
+
+# ============================================================================
+# AUDIT LOGS
+# ============================================================================
+
+@admin_bp.get("/audit-logs")
+@require_role("viewer")
+def list_audit_logs():
+    """List audit logs with pagination and filtering."""
+    query = AuditLog.query
+
+    # Filters
+    action = request.args.get("action")
+    if action:
+        query = query.filter(AuditLog.action == action)
+
+    actor_id = request.args.get("actor_id", type=int)
+    if actor_id:
+        query = query.filter(AuditLog.actor_id == actor_id)
+
+    target_type = request.args.get("target_type")
+    if target_type:
+        query = query.filter(AuditLog.target_type == target_type)
+
+    target_id = request.args.get("target_id", type=int)
+    if target_id:
+        query = query.filter(AuditLog.target_id == target_id)
+
+    search = request.args.get("search")
+    if search:
+        query = query.filter(
+            (AuditLog.actor_email.ilike(f"%{search}%")) |
+            (AuditLog.target_label.ilike(f"%{search}%"))
+        )
+
+    # Date range
+    from_date = request.args.get("from_date")
+    if from_date:
+        from datetime import datetime as dt
+        try:
+            query = query.filter(AuditLog.created_at >= dt.fromisoformat(from_date))
+        except ValueError:
+            pass
+
+    to_date = request.args.get("to_date")
+    if to_date:
+        from datetime import datetime as dt
+        try:
+            query = query.filter(AuditLog.created_at <= dt.fromisoformat(to_date))
+        except ValueError:
+            pass
+
+    # Sort (default: newest first)
+    query = query.order_by(AuditLog.created_at.desc())
+
+    # Paginate
+    page = request.args.get("page", 1, type=int)
+    page_size = min(request.args.get("page_size", 50, type=int), 100)
+
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+    return jsonify({
+        "items": [log.to_dict() for log in pagination.items],
+        "total": pagination.total,
+        "page": pagination.page,
+        "page_size": pagination.per_page,
+        "pages": pagination.pages,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+    })
+
+
+@admin_bp.get("/audit-logs/actions")
+@require_role("viewer")
+def list_audit_actions():
+    """List all unique action types for filtering."""
+    actions = db.session.query(AuditLog.action).distinct().all()
+    return jsonify([a[0] for a in actions])
