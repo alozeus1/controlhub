@@ -1,0 +1,15 @@
+<svg width="220" height="40" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4FF"/>
+      <stop offset="100%" style="stop-color:#0099CC"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon -->
+  <rect width="40" height="40" rx="8" fill="url(#logoGradient)"/>
+  <text x="20" y="28" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="700" fill="#0A0F1C" text-anchor="middle">W</text>
+  <!-- Text -->
+  <text x="52" y="24" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#F9FAFB">Web Forx</text>
+  <text x="126" y="24" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#00D4FF">ControlHub</text>
+  <text x="52" y="36" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#6B7280">by Web Forx Global Inc.</text>
+</svg>
