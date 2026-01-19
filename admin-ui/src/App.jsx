@@ -1,0 +1,39 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import MainLayout from "./components/MainLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Users from "./pages/Users";
+import Uploads from "./pages/Uploads";
+import Jobs from "./pages/Jobs";
+import Logout from "./pages/Logout";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+
+        {/* Public Route */}
+        <Route path="/ui/login" element={<Login />} />
+
+        {/* Protected Routes inside Dark Cyber Layout */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/ui/dashboard" element={<Dashboard />} />
+          <Route path="/ui/users" element={<Users />} />
+          <Route path="/ui/uploads" element={<Uploads />} />
+          <Route path="/ui/jobs" element={<Jobs />} />
+          <Route path="/ui/logout" element={<Logout />} />
+        </Route>
+
+      </Routes>
+    </BrowserRouter>
+  );
+}

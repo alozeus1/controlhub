@@ -1,0 +1,180 @@
+/* FULL PAGE */
+.login-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: #050812;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* FADING NEON GRID BACKGROUND */
+.grid-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  background-image: linear-gradient(#00eaff22 1px, transparent 1px),
+                    linear-gradient(90deg, #00eaff22 1px, transparent 1px);
+  background-size: 35px 35px;
+  transform: rotate(45deg);
+  animation: gridMove 12s linear infinite;
+  opacity: 0.28;
+  filter: drop-shadow(0 0 15px #00eaff66);
+}
+
+@keyframes gridMove {
+  from {
+    transform: rotate(45deg) translateY(0);
+  }
+  to {
+    transform: rotate(45deg) translateY(-300px);
+  }
+}
+
+/* HOLOGRAM CARD */
+.login-card {
+  z-index: 2;
+  width: 380px;
+  padding: 30px;
+
+  /* Hologram background */
+  background: rgba(10, 20, 40, 0.75);
+  backdrop-filter: blur(18px);
+
+  /* MAX GLOW BORDER + HOLOGRAPHIC EDGES */
+  border: 1px solid #00eaffaa;
+  box-shadow:
+    0 0 12px #00eaff55,
+    0 0 22px #00eaff55,
+    0 0 45px #00eaff33,
+    inset 0 0 12px #00eaff44,
+    inset 0 0 25px #00eaff22;
+
+  border-radius: 10px;
+
+  /* Pulse animation */
+  animation: fadeIn 1.2s ease, hologlow 4s infinite ease-in-out;
+}
+
+@keyframes hologlow {
+  0% {
+    box-shadow:
+      0 0 12px #00eaff55,
+      0 0 22px #00eaff55,
+      0 0 45px #00eaff33,
+      inset 0 0 12px #00eaff44,
+      inset 0 0 25px #00eaff22;
+  }
+
+  50% {
+    box-shadow:
+      0 0 20px #00eaffaa,
+      0 0 40px #00eaff99,
+      0 0 70px #00eaff66,
+      inset 0 0 20px #00eaff66,
+      inset 0 0 40px #00eaff33;
+  }
+
+  100% {
+    box-shadow:
+      0 0 12px #00eaff55,
+      0 0 22px #00eaff55,
+      0 0 45px #00eaff33,
+      inset 0 0 12px #00eaff44,
+      inset 0 0 25px #00eaff22;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.title {
+  color: #00eaff;
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 24px;
+  text-shadow: 0 0 10px #00eaff;
+}
+
+/* INPUTS */
+.cyber-input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: rgba(0, 30, 50, 0.4);
+  border: 1px solid #00eaff44;
+  color: #9bdfff;
+  outline: none;
+  border-radius: 4px;
+  transition: 0.25s;
+
+  /* Subtle glow */
+  box-shadow: 0 0 10px #00eaff22;
+}
+
+.cyber-input:focus {
+  border-color: #00eaff;
+  box-shadow:
+    0 0 12px #00eaff55,
+    0 0 25px #00eaff33,
+    inset 0 0 12px #00eaff22;
+}
+
+.cyber-input:focus {
+  border-color: #00eaff;
+  box-shadow: 0 0 8px #00eaff;
+}
+
+/* HOLOGRAM BUTTON */
+.cyber-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  background: rgba(0, 255, 255, 0.12);
+  color: #00eaff;
+  border: 1px solid #00eaffcc;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #00eaff;
+  transition: 0.25s;
+
+  /* Primary glow */
+  box-shadow:
+    0 0 15px #00eaff66,
+    0 0 25px #00eaff44,
+    inset 0 0 10px #00eaff33;
+}
+
+.cyber-button:hover {
+  background: rgba(0, 255, 255, 0.2);
+  box-shadow:
+    0 0 25px #00eaffaa,
+    0 0 45px #00eaff88,
+    inset 0 0 20px #00eaff55;
+  transform: translateY(-2px);
+}
+
+.cyber-button:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 0 10px #00eaff88 inset,
+    0 0 25px #00eaff44 inset;
+}
+
+.cyber-button:hover {
+  background: #00eaff33;
+  box-shadow: 0 0 15px #00eaffaa;
+  transform: translateY(-2px);
+}
+
+.cyber-button:active {
+  transform: translateY(1px);
+}

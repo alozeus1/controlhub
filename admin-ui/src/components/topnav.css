@@ -1,0 +1,23 @@
+.topnav {
+  margin-left: 240px;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 20, 30, 0.8);
+  border-bottom: 1px solid #00eaff;
+  box-shadow: 0 0 15px #00eaff;
+}
+
+.breadcrumbs {
+  color: #00eaff;
+  font-weight: bold;
+}
+
+.user-badge {
+  padding: 8px 20px;
+  border: 1px solid #00eaff;
+  border-radius: 20px;
+  background: rgba(0, 255, 255, 0.1);
+  color: #00eaff;
+}

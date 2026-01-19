@@ -1,0 +1,40 @@
+.sidebar {
+  width: 240px;
+  height: 100vh;
+  background: rgba(0, 20, 30, 0.9);
+  border-right: 1px solid #00eaff;
+  box-shadow: 0 0 20px #00eaff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 30px 20px;
+}
+
+.logo {
+  text-align: center;
+  font-size: 24px;
+  color: #00eaff;
+  text-shadow: 0 0 10px #00eaff;
+  margin-bottom: 30px;
+}
+
+.nav a {
+  display: block;
+  margin: 12px 0;
+  padding: 10px;
+  color: #b5faff;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.nav a:hover {
+  background: rgba(0, 255, 255, 0.2);
+  color: #00eaff;
+}
+
+.nav a.active {
+  background: rgba(0, 255, 255, 0.4);
+  color: white;
+  box-shadow: 0 0 10px #00eaff;
+}

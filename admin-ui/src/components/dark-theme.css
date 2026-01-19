@@ -1,0 +1,77 @@
+/* GLOBAL */
+body {
+  background: #0a0f1c;
+  color: #c8e1ff;
+  font-family: "JetBrains Mono", monospace;
+  margin: 0;
+}
+
+/* Layout container */
+.layout-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px;
+  background: rgba(10, 20, 40, 0.85);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid #0aefff44;
+  box-shadow: 0 0 20px #00bfff44;
+  padding: 20px;
+}
+
+.sidebar-title {
+  color: #00eaff;
+  font-size: 22px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 8px #00eaff;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 12px 10px;
+  margin-bottom: 8px;
+  color: #9cc9ff;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: 0.2s;
+}
+
+.sidebar-nav a:hover {
+  color: #00eaff;
+  border-left: 3px solid #00eaff;
+  background: rgba(0, 255, 255, 0.1);
+  text-shadow: 0 0 8px #00eaff;
+}
+
+/* MAIN CONTENT */
+.main-content {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+/* TABLES (Users, Uploads, Jobs) */
+.cyber-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.cyber-table th {
+  background: #0d1b2a;
+  color: #00eaff;
+  padding: 12px;
+  border-bottom: 1px solid #00eaff55;
+}
+
+.cyber-table td {
+  padding: 12px;
+  border-bottom: 1px solid #112233;
+}
+
+.cyber-table tr:hover {
+  background: rgba(0, 255, 255, 0.05);
+}

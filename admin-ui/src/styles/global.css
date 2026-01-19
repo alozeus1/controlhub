@@ -1,0 +1,32 @@
+/* Neon Grid Background */
+body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at 20% 20%, #030b17, #010409);
+  font-family: "Inter", sans-serif;
+  color: white;
+  background-image:
+    linear-gradient(rgba(0, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow */
+.cyber-glow {
+  box-shadow: 0 0 15px #00eaff, 0 0 30px #00eaff inset;
+}
+
+/* Cyber Card */
+.cyber-card {
+  padding: 20px;
+  background: rgba(0, 20, 30, 0.7);
+  border: 1px solid #00eaff;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #00eaff;
+  transition: 0.3s;
+}
+
+.cyber-card:hover {
+  box-shadow: 0 0 25px #00eaff;
+  transform: translateY(-3px);
+}
