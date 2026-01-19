@@ -22,7 +22,10 @@ export default function Sidebar() {
       <div className="sidebar-header">
         <a href="/ui/dashboard" className="sidebar-logo">
           <div className="sidebar-logo-icon">W</div>
-          <span className="sidebar-logo-text">Web<span>Forx</span></span>
+          <div className="sidebar-logo-content">
+            <span className="sidebar-logo-text">Web Forx <span>ControlHub</span></span>
+            <span className="sidebar-logo-subtitle">by Web Forx Global Inc.</span>
+          </div>
         </a>
       </div>
 
@@ -48,7 +51,7 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="sidebar-footer-brand">
-          Powered by <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx</a>
+          <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx Global Inc.</a>
         </div>
       </div>
     </aside>

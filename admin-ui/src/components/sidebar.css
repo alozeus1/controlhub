@@ -24,8 +24,8 @@
 }
 
 .sidebar-logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   border-radius: var(--radius-md);
   display: flex;
@@ -34,16 +34,30 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-inverse);
   font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.sidebar-logo-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .sidebar-logo-text {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
 .sidebar-logo-text span {
   color: var(--color-primary);
+}
+
+.sidebar-logo-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .sidebar-nav {

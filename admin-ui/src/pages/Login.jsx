@@ -40,10 +40,13 @@ export default function Login() {
           <div className="login-header">
             <div className="login-logo">
               <div className="login-logo-icon">W</div>
-              <span className="login-logo-text">Web<span>Forx</span></span>
+              <div className="login-logo-content">
+                <span className="login-logo-text">Web Forx <span>ControlHub</span></span>
+                <span className="login-logo-subtitle">by Web Forx Global Inc.</span>
+              </div>
             </div>
             <h1 className="login-title">Welcome back</h1>
-            <p className="login-subtitle">Sign in to access the admin dashboard</p>
+            <p className="login-subtitle">Sign in to access the control hub</p>
           </div>
 
           {errorMsg && <div className="login-error">{errorMsg}</div>}
@@ -80,7 +83,7 @@ export default function Login() {
         </div>
 
         <p className="login-footer">
-          &copy; {new Date().getFullYear()} Web Forx. All rights reserved.
+          &copy; {new Date().getFullYear()} Web Forx Global Inc. Web Forx™. All rights reserved.
         </p>
       </div>
       <div className="login-bg" />

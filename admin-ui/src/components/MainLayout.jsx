@@ -25,9 +25,9 @@ export default function MainLayout() {
               rel="noopener noreferrer"
               className="footer-brand-link"
             >
-              Web Forx
+              Web Forx Global Inc.
             </a>
-            . All rights reserved.
+            {" "}Web Forx™. All rights reserved.
           </span>
           <div className="main-footer-links">
             <Link to="/ui/support">Support</Link>

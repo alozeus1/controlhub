@@ -151,7 +151,7 @@ export default function Settings() {
             <div className="settings-info">
               <div className="settings-row">
                 <span className="settings-label">Application</span>
-                <span className="settings-value">Web Forx Admin</span>
+                <span className="settings-value">Web Forx ControlHub</span>
               </div>
               <div className="settings-row">
                 <span className="settings-label">Version</span>

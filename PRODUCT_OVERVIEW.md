@@ -1,8 +1,12 @@
-# Product Overview: Flask Advanced Admin Platform
+# Web Forx ControlHub
+
+**Admin, audit, and operational control for modern teams.**
+
+*by Web Forx Global Inc.*
 
 ## What This Application Is
 
-This is an **internal admin/operations platform** built with Flask (Python) and React. It provides a centralized dashboard for managing users, file uploads, and background jobs within an organization.
+Web Forx ControlHub is an **enterprise admin/operations platform** built with Flask (Python) and React. It provides a centralized dashboard for managing users, file uploads, and background jobs within an organization.
 
 ---
 
@@ -23,10 +27,10 @@ This is an **internal admin/operations platform** built with Flask (Python) and 
 - Track job ownership (which user triggered it)
 - View job history and status
 
-### 4. Admin Dashboard (React UI)
-- Modern dark-themed cyber UI
+### 4. ControlHub Dashboard (React UI)
+- Modern dark-themed enterprise UI
 - Protected routes requiring authentication
-- Pages: Dashboard, Users, Uploads, Jobs
+- Pages: Dashboard, Users, Uploads, Jobs, Audit Logs, Settings
 
 ---
 
@@ -34,7 +38,7 @@ This is an **internal admin/operations platform** built with Flask (Python) and 
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   React Admin   │────▶│   Flask API     │────▶│   PostgreSQL    │
+│   ControlHub    │────▶│   Flask API     │────▶│   PostgreSQL    │
 │   UI (:3001)    │     │   (:9000)       │     │   (:5432)       │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
                               │

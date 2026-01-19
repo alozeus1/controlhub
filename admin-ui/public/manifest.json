@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "ControlHub",
+  "name": "Web Forx ControlHub",
+  "description": "Admin, audit, and operational control for modern teams.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0A0F1C",
+  "background_color": "#0A0F1C"
 }

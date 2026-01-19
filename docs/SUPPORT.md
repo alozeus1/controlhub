@@ -1,6 +1,6 @@
 # Support & Troubleshooting
 
-Welcome to Web Forx Admin support. This guide will help you resolve common issues and get assistance when needed.
+Welcome to Web Forx ControlHub support. This guide will help you resolve common issues and get assistance when needed.
 
 ## Getting Help
 

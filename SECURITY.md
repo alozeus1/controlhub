@@ -1,6 +1,8 @@
 # Security Guide
 
-## Environment-Based Security
+## Web Forx ControlHub Security
+
+*by Web Forx Global Inc.*
 
 This application enforces different security requirements based on the `ENVIRONMENT` variable.
 
@@ -67,4 +69,9 @@ Configure CORS appropriately for your frontend domain in production.
 
 ## Reporting Security Issues
 
-If you discover a security vulnerability, please report it privately rather than opening a public issue.
+If you discover a security vulnerability, please report it privately to security@webforxtech.com rather than opening a public issue.
+
+---
+
+*Web Forx ControlHub by Web Forx Global Inc.*  
+*https://www.webforxtech.com/*

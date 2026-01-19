@@ -62,14 +62,25 @@
   font-size: var(--font-size-xl);
 }
 
+.login-logo-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .login-logo-text {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .login-logo-text span {
   color: var(--color-primary);
+}
+
+.login-logo-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .login-title {

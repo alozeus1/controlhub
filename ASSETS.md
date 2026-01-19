@@ -1,11 +1,16 @@
 # Assets Documentation
 
-This document describes the visual assets, branding, and design system used in the Web Forx Admin application.
+This document describes the visual assets, branding, and design system used in Web Forx ControlHub.
 
 ## Brand Identity
 
+### Product Name
+- **Full Name**: Web Forx ControlHub
+- **Company**: Web Forx Global Inc.
+- **Tagline**: Admin, audit, and operational control for modern teams.
+
 ### Logo
-- **Primary Logo**: "W" icon + "WebForx" text
+- **Primary Logo**: "W" icon + "Web Forx ControlHub" text
 - **Icon**: Gradient square with "W" letter
 - **Colors**: Cyan gradient (#00D4FF → #0099CC)
 
@@ -97,7 +102,8 @@ function MyComponent() {
 ### Sidebar
 - Width: 260px (fixed)
 - Sections: Overview, Management, System
-- Footer: "Powered by Web Forx" branding
+- Header: "Web Forx ControlHub" with "by Web Forx Global Inc." subtitle
+- Footer: Web Forx Global Inc. link
 
 ### Top Navigation
 - Height: 64px (fixed)

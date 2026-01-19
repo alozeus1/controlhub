@@ -2,7 +2,7 @@
 
 **Last Updated:** January 2026
 
-Web Forx Admin ("the Application") is committed to protecting your privacy. This policy explains how we collect, use, and safeguard your information.
+Web Forx ControlHub ("the Application"), developed by Web Forx Global Inc., is committed to protecting your privacy. This policy explains how we collect, use, and safeguard your information.
 
 ## Information We Collect
 
@@ -74,7 +74,7 @@ No third-party tracking cookies are used.
 
 For privacy concerns, contact your system administrator or:
 
-**Web Forx Technologies**  
+**Web Forx Global Inc.**  
 Email: privacy@webforxtech.com  
 Website: https://www.webforxtech.com/
 
