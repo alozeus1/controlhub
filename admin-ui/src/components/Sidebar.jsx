@@ -48,7 +48,7 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="sidebar-footer-brand">
-          Powered by <a href="https://webforx.com" target="_blank" rel="noopener noreferrer">Web Forx</a>
+          Powered by <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx</a>
         </div>
       </div>
     </aside>

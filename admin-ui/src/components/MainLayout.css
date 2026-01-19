@@ -41,6 +41,15 @@
   color: var(--color-primary);
 }
 
+.footer-brand-link {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.footer-brand-link:hover {
+  text-decoration: underline;
+}
+
 /* Page header styles */
 .page-header {
   margin-bottom: var(--spacing-xl);

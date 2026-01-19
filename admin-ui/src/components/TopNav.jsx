@@ -9,6 +9,8 @@ const pageNames = {
   jobs: "Jobs",
   "audit-logs": "Audit Logs",
   settings: "Settings",
+  privacy: "Privacy Policy",
+  support: "Support",
 };
 
 export default function TopNav() {

@@ -10,6 +10,8 @@ import Uploads from "./pages/Uploads";
 import Jobs from "./pages/Jobs";
 import AuditLogs from "./pages/AuditLogs";
 import Settings from "./pages/Settings";
+import Privacy from "./pages/Privacy";
+import Support from "./pages/Support";
 import Logout from "./pages/Logout";
 
 export default function App() {
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/ui/jobs" element={<Jobs />} />
           <Route path="/ui/audit-logs" element={<AuditLogs />} />
           <Route path="/ui/settings" element={<Settings />} />
+          <Route path="/ui/privacy" element={<Privacy />} />
+          <Route path="/ui/support" element={<Support />} />
           <Route path="/ui/logout" element={<Logout />} />
         </Route>
 

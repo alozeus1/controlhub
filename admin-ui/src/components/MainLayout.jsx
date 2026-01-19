@@ -1,6 +1,6 @@
 import Sidebar from "./Sidebar";
 import TopNav from "./TopNav";
-import { Outlet } from "react-router-dom";
+import { Outlet, Link } from "react-router-dom";
 import "./MainLayout.css";
 
 export default function MainLayout() {
@@ -17,11 +17,21 @@ export default function MainLayout() {
         </div>
 
         <footer className="main-footer">
-          <span>&copy; {currentYear} Web Forx. All rights reserved.</span>
+          <span>
+            &copy; {currentYear}{" "}
+            <a
+              href="https://www.webforxtech.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-brand-link"
+            >
+              Web Forx
+            </a>
+            . All rights reserved.
+          </span>
           <div className="main-footer-links">
-            <a href="#">Documentation</a>
-            <a href="#">Support</a>
-            <a href="#">Privacy</a>
+            <Link to="/ui/support">Support</Link>
+            <Link to="/ui/privacy">Privacy</Link>
           </div>
         </footer>
       </main>

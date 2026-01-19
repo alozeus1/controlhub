@@ -1,0 +1,20 @@
+.doc-page {
+  max-width: 900px;
+}
+
+.doc-page .page-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.doc-page .page-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.doc-page .page-subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  margin: var(--spacing-xs) 0 0;
+}
