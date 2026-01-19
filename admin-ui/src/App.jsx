@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -14,6 +14,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Root redirects to login */}
+        <Route path="/" element={<Navigate to="/ui/login" replace />} />
 
         {/* Public Route */}
         <Route path="/ui/login" element={<Login />} />
@@ -33,6 +35,8 @@ export default function App() {
           <Route path="/ui/logout" element={<Logout />} />
         </Route>
 
+        {/* Catch-all redirects to login */}
+        <Route path="*" element={<Navigate to="/ui/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
