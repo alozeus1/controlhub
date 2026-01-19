@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: flaskdb
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+
+  ui:
+    build:
+      context: ./admin-ui
+    container_name: admin-ui
+    ports:
+      - "3001:3000"
+    environment:
+      REACT_APP_API_URL: "http://api:80"
+    stdin_open: true
+    tty: true
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "9000:80"
+    env_file:
+      - .env
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql://postgres:password@db:5432/flaskdb
+      FLASK_APP: wsgi.py
+      FLASK_ENV: development
+      DB_HOST: db
+      DB_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
