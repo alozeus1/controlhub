@@ -43,7 +43,7 @@ export default function TopNav() {
     ? user.email.split("@")[0].slice(0, 2).toUpperCase()
     : "??";
 
-  const env = import.meta.env.MODE || "development";
+  const env = process.env.NODE_ENV || "development";
   const envLabel = env === "production" ? "PROD" : env === "staging" ? "STAGING" : "DEV";
   const envClass = env === "production" ? "prod" : env === "staging" ? "staging" : "dev";
 

@@ -160,13 +160,13 @@ export default function Settings() {
               <div className="settings-row">
                 <span className="settings-label">Environment</span>
                 <span className="settings-value">
-                  {import.meta.env?.MODE || process.env.NODE_ENV || "development"}
+                  {process.env.NODE_ENV || "development"}
                 </span>
               </div>
               <div className="settings-row">
                 <span className="settings-label">API Endpoint</span>
                 <span className="settings-value font-mono text-muted">
-                  {import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || "http://localhost:9000"}
+                  {process.env.REACT_APP_API_URL || "http://localhost:9000"}
                 </span>
               </div>
             </div>
