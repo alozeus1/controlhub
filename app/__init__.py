@@ -25,10 +25,12 @@ def create_app():
     from app.routes.general import general_bp
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
+    from app.routes.uploads import uploads_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(uploads_bp, url_prefix="/admin")  # Upload routes under /admin
     app.register_blueprint(ui_bp, url_prefix="/ui")
 
     return app

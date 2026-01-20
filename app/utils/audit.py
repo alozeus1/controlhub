@@ -167,3 +167,67 @@ def log_password_changed(actor: User, target_user: User = None):
         target_user=target,
         details={"self_service": target_user is None},
     )
+
+
+# =============================================================================
+# UPLOAD AUDIT FUNCTIONS
+# =============================================================================
+
+def log_upload_action(action: str, actor: User, upload, details: dict = None):
+    """
+    Convenience function for logging upload-related actions.
+
+    Args:
+        action: Action code (e.g., 'upload.created', 'upload.deleted')
+        actor: User performing the action
+        upload: FileUpload object
+        details: Additional context
+    """
+    return log_action(
+        action=action,
+        actor=actor,
+        target_type="upload",
+        target_id=upload.id,
+        target_label=upload.original_filename,
+        details=details,
+    )
+
+
+def log_upload_created(actor: User, upload):
+    """Log file upload."""
+    return log_upload_action(
+        action="upload.created",
+        actor=actor,
+        upload=upload,
+        details={
+            "filename": upload.original_filename,
+            "content_type": upload.content_type,
+            "size_bytes": upload.size_bytes,
+            "s3_key": upload.s3_key,
+        },
+    )
+
+
+def log_upload_downloaded(actor: User, upload):
+    """Log file download (presigned URL generation)."""
+    return log_upload_action(
+        action="upload.downloaded",
+        actor=actor,
+        upload=upload,
+        details={
+            "filename": upload.original_filename,
+        },
+    )
+
+
+def log_upload_deleted(actor: User, upload):
+    """Log file deletion."""
+    return log_upload_action(
+        action="upload.deleted",
+        actor=actor,
+        upload=upload,
+        details={
+            "filename": upload.original_filename,
+            "s3_key": upload.s3_key,
+        },
+    )

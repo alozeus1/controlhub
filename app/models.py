@@ -48,11 +48,47 @@ class User(db.Model):
         }
 
 class FileUpload(db.Model):
+    __tablename__ = "file_upload"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    filename = db.Column(db.String(255), nullable=False)
-    s3_key = db.Column(db.String(255), nullable=False)
+    
+    # File info
+    original_filename = db.Column(db.String(255), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)  # Legacy, same as original_filename
+    content_type = db.Column(db.String(100), nullable=True)
+    size_bytes = db.Column(db.BigInteger, nullable=True)
+    
+    # S3 storage
+    s3_bucket = db.Column(db.String(100), nullable=False)
+    s3_key = db.Column(db.String(500), nullable=False)
+    
+    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True)  # Soft delete
+    
+    # Relationships
+    uploader = db.relationship("User", backref="uploads", foreign_keys=[user_id])
+    
+    @property
+    def is_deleted(self):
+        return self.deleted_at is not None
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "uploader_email": self.uploader.email if self.uploader else None,
+            "original_filename": self.original_filename,
+            "filename": self.filename,
+            "content_type": self.content_type,
+            "size_bytes": self.size_bytes,
+            "s3_bucket": self.s3_bucket,
+            "s3_key": self.s3_key,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+            "is_deleted": self.is_deleted,
+        }
 
 class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
