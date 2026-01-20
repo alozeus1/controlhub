@@ -1,0 +1,14 @@
+<svg width="180" height="36" viewBox="0 0 180 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#0099CC"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon -->
+  <rect width="36" height="36" rx="8" fill="url(#logoGrad)"/>
+  <path d="M10 26L14.5 10H17.5L20 20L22.5 10H25.5L21 26H18L15.5 16L13 26H10Z" fill="#0A0F1C"/>
+  <!-- Text -->
+  <text x="44" y="16" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#F9FAFB">Web Forx</text>
+  <text x="44" y="30" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#00D4FF">ControlHub</text>
+</svg>

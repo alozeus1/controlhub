@@ -1,5 +1,7 @@
 import { useState } from "react";
 import api from "../utils/api";
+import controlhubLogo from "../assets/brand/controlhub-logo.svg";
+import webForxMark from "../assets/brand/web-forx-mark.png";
 import "./Login.css";
 
 export default function Login() {
@@ -39,11 +41,7 @@ export default function Login() {
         <div className="login-card">
           <div className="login-header">
             <div className="login-logo">
-              <div className="login-logo-icon">W</div>
-              <div className="login-logo-content">
-                <span className="login-logo-text">Web Forx <span>ControlHub</span></span>
-                <span className="login-logo-subtitle">by Web Forx Global Inc.</span>
-              </div>
+              <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-logo-img" />
             </div>
             <h1 className="login-title">Welcome back</h1>
             <p className="login-subtitle">Sign in to access the control hub</p>
@@ -82,9 +80,14 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="login-footer">
-          &copy; {new Date().getFullYear()} Web Forx Global Inc. Web Forx™. All rights reserved.
-        </p>
+        <div className="login-footer">
+          <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer" className="login-footer-brand">
+            <img src={webForxMark} alt="Web Forx" className="login-footer-mark" />
+          </a>
+          <p className="login-footer-text">
+            &copy; {new Date().getFullYear()} Web Forx Global Inc. Web Forx™. All rights reserved.
+          </p>
+        </div>
       </div>
       <div className="login-bg" />
     </div>

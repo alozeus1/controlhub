@@ -9,10 +9,36 @@ This document describes the visual assets, branding, and design system used in W
 - **Company**: Web Forx Global Inc.
 - **Tagline**: Admin, audit, and operational control for modern teams.
 
-### Logo
-- **Primary Logo**: "W" icon + "Web Forx ControlHub" text
-- **Icon**: Gradient square with "W" letter
-- **Colors**: Cyan gradient (#00D4FF → #0099CC)
+### Logo Assets
+
+| Asset | Location | Usage |
+|-------|----------|-------|
+| `logo-icon.svg` | `src/assets/brand/` | Sidebar icon, TopNav icon |
+| `controlhub-logo.svg` | `src/assets/brand/` | Login page header |
+| `web-forx-mark.png` | `src/assets/brand/` | Login page footer, brand mark |
+| `favicon.svg` | `public/brand/` | Browser tab favicon |
+
+### Logo Usage by Component
+
+| Component | Asset Used | Size |
+|-----------|------------|------|
+| Sidebar | `logo-icon.svg` | 32x32px |
+| TopNav | `logo-icon.svg` | 24x24px |
+| Login Header | `controlhub-logo.svg` | 48px height |
+| Login Footer | `web-forx-mark.png` | 32px height |
+| Favicon | `favicon.svg` | Browser default |
+
+### Replacing Logos
+
+1. **Sidebar/TopNav icon**: Replace `src/assets/brand/logo-icon.svg`
+2. **Login page logo**: Replace `src/assets/brand/controlhub-logo.svg`
+3. **Brand mark**: Replace `src/assets/brand/web-forx-mark.png`
+4. **Favicon**: Replace `public/brand/favicon.svg`
+
+After replacing, rebuild the app: `docker compose up --build`
+
+### Brand Colors
+- **Primary**: Cyan gradient (#00D4FF → #0099CC)
 
 ### Typography
 - **Primary Font**: Inter (Google Fonts)
@@ -102,12 +128,12 @@ function MyComponent() {
 ### Sidebar
 - Width: 260px (fixed)
 - Sections: Overview, Management, System
-- Header: "Web Forx ControlHub" with "by Web Forx Global Inc." subtitle
+- Header: logo-icon.svg + "ControlHub" text with "by Web Forx Global Inc." subtitle
 - Footer: Web Forx Global Inc. link
 
 ### Top Navigation
 - Height: 64px (fixed)
-- Left: Breadcrumbs
+- Left: logo-icon.svg + "Web Forx ControlHub" text + Breadcrumbs
 - Right: Environment badge, User dropdown
 
 ### Main Content

@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import logoIcon from "../assets/brand/logo-icon.svg";
 import "./Sidebar.css";
 
 const navItems = [
@@ -21,9 +22,9 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <a href="/ui/dashboard" className="sidebar-logo">
-          <div className="sidebar-logo-icon">W</div>
+          <img src={logoIcon} alt="Web Forx" className="sidebar-logo-img" />
           <div className="sidebar-logo-content">
-            <span className="sidebar-logo-text">Web Forx <span>ControlHub</span></span>
+            <span className="sidebar-logo-text"><span>ControlHub</span></span>
             <span className="sidebar-logo-subtitle">by Web Forx Global Inc.</span>
           </div>
         </a>

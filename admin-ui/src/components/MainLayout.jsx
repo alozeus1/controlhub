@@ -30,6 +30,7 @@ export default function MainLayout() {
             {" "}Web Forx™. All rights reserved.
           </span>
           <div className="main-footer-links">
+            <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx</a>
             <Link to="/ui/support">Support</Link>
             <Link to="/ui/privacy">Privacy</Link>
           </div>

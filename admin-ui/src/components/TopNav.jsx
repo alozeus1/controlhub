@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
+import logoIcon from "../assets/brand/logo-icon.svg";
 import "./TopNav.css";
 
 const pageNames = {
@@ -52,6 +53,10 @@ export default function TopNav() {
   return (
     <header className="topnav">
       <div className="topnav-left">
+        <Link to="/ui/dashboard" className="topnav-brand">
+          <img src={logoIcon} alt="Web Forx" className="topnav-brand-logo" />
+          <span className="topnav-brand-text">Web Forx <span>ControlHub</span></span>
+        </Link>
         <nav className="topnav-breadcrumbs">
           <Link to="/ui/dashboard" className="topnav-breadcrumb-link">Home</Link>
           <span className="topnav-breadcrumb-separator">/</span>

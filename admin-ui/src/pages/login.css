@@ -45,42 +45,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
 }
 
-.login-logo-icon {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-inverse);
-  font-size: var(--font-size-xl);
-}
-
-.login-logo-content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.login-logo-text {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-
-.login-logo-text span {
-  color: var(--color-primary);
-}
-
-.login-logo-subtitle {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+.login-logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
 }
 
 .login-title {
@@ -173,6 +144,29 @@
 
 .login-footer {
   margin-top: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.login-footer-brand {
+  display: block;
+  transition: opacity var(--transition-fast);
+}
+
+.login-footer-brand:hover {
+  opacity: 0.8;
+}
+
+.login-footer-mark {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.login-footer-text {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  margin: 0;
 }

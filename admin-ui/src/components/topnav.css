@@ -16,7 +16,38 @@
 .topnav-left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
+}
+
+.topnav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  text-decoration: none;
+}
+
+.topnav-brand-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.topnav-brand-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: none;
+}
+
+.topnav-brand-text span {
+  color: var(--color-primary);
+}
+
+@media (min-width: 1024px) {
+  .topnav-brand-text {
+    display: inline;
+  }
 }
 
 .topnav-breadcrumbs {
