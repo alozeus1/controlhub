@@ -300,6 +300,52 @@ curl -s http://localhost:9000/healthz
 
 ---
 
+## 7. LocalStack / S3 Tests
+
+### 7.1 LocalStack Running
+```bash
+docker compose ps localstack
+# Expected: Status shows "healthy"
+```
+
+### 7.2 Bucket Created
+```bash
+# Check bucket exists
+aws --endpoint-url=http://localhost:4566 s3 ls
+# Expected: controlhub-uploads
+
+# Or using curl
+curl -s http://localhost:4566/_localstack/health
+# Expected: {"services":{"s3":"running"}}
+```
+
+### 7.3 Test Upload (manual)
+```bash
+# Upload a test file
+echo "test content" > /tmp/test.txt
+aws --endpoint-url=http://localhost:4566 s3 cp /tmp/test.txt s3://controlhub-uploads/test.txt
+
+# Verify upload
+aws --endpoint-url=http://localhost:4566 s3 ls s3://controlhub-uploads/
+# Expected: test.txt listed
+```
+
+### 7.4 AWS CLI Setup (for local testing)
+```bash
+# If you don't have AWS CLI, install it or use docker:
+docker run --rm -it --network host amazon/aws-cli \
+  --endpoint-url=http://localhost:4566 s3 ls
+
+# Configure credentials for LocalStack (any values work)
+aws configure
+# AWS Access Key ID: test
+# AWS Secret Access Key: test
+# Default region: us-east-1
+# Default output: json
+```
+
+---
+
 ## Service Endpoints Summary
 
 | Service | URL | Purpose |
@@ -308,3 +354,5 @@ curl -s http://localhost:9000/healthz
 | Health | http://localhost:9000/healthz | Health check |
 | Admin UI | http://localhost:3001 | React frontend |
 | Postgres | localhost:5432 | Database |
+| LocalStack | http://localhost:4566 | S3-compatible storage |
+| LocalStack Health | http://localhost:4566/_localstack/health | LocalStack status |
