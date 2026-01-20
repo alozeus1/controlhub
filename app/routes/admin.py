@@ -210,43 +210,14 @@ def enable_user(user_id):
 
 
 # ============================================================================
-# UPLOADS
+# UPLOADS - Moved to app/routes/uploads.py
 # ============================================================================
-
-@admin_bp.get("/uploads")
-@require_role("viewer")
-def list_uploads():
-    """List all uploads with pagination."""
-    query = FileUpload.query
-
-    user_id = request.args.get("user_id", type=int)
-    if user_id:
-        query = query.filter(FileUpload.user_id == user_id)
-
-    query = query.order_by(FileUpload.created_at.desc())
-
-    pagination = query.paginate(
-        page=request.args.get("page", 1, type=int),
-        per_page=request.args.get("page_size", 20, type=int),
-        error_out=False
-    )
-
-    return jsonify({
-        "items": [
-            {
-                "id": f.id,
-                "user_id": f.user_id,
-                "filename": f.filename,
-                "s3_key": f.s3_key,
-                "created_at": f.created_at.isoformat() if f.created_at else None,
-            }
-            for f in pagination.items
-        ],
-        "total": pagination.total,
-        "page": pagination.page,
-        "page_size": pagination.per_page,
-        "pages": pagination.pages,
-    })
+# Upload endpoints are now in uploads.py blueprint:
+# - POST /admin/uploads - Upload file
+# - GET /admin/uploads - List uploads  
+# - GET /admin/uploads/<id> - Get single upload
+# - GET /admin/uploads/<id>/download - Get presigned URL
+# - DELETE /admin/uploads/<id> - Delete upload
 
 
 # ============================================================================
