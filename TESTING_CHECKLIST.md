@@ -346,13 +346,139 @@ aws configure
 
 ---
 
+## 8. Enterprise Module Tests
+
+### 8.1 Feature Flags Check
+```bash
+curl -s http://localhost:9000/features
+# Expected: {"service_accounts":true,"notifications":true,"integrations":true,"assets":true}
+```
+
+### 8.2 Service Accounts API
+```bash
+# Create service account
+curl -s -X POST http://localhost:9000/admin/service-accounts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CI/CD Bot","description":"For deployments"}'
+# Expected: {"message":"Service account created","service_account":{...}}
+
+# Create API key
+SA_ID=1  # Use ID from previous response
+curl -s -X POST http://localhost:9000/admin/service-accounts/$SA_ID/keys \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"deploy-key","scopes":["uploads.read","jobs.read"]}'
+# Expected: {"key":"ch_...","api_key":{...}}
+```
+
+### 8.3 Notifications API
+```bash
+# Create notification channel
+curl -s -X POST http://localhost:9000/admin/notification-channels \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"webhook","name":"Test Webhook","config":{"url":"https://httpbin.org/post"}}'
+# Expected: {"message":"Notification channel created",...}
+
+# Create alert rule
+curl -s -X POST http://localhost:9000/admin/alert-rules \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Job Failures","event_type":"job.failed","severity":"high","channel_ids":[1]}'
+# Expected: {"message":"Alert rule created",...}
+```
+
+### 8.4 Integrations API
+```bash
+# Create webhook integration
+curl -s -X POST http://localhost:9000/admin/integrations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"webhook","name":"SIEM Feed","config":{"url":"https://httpbin.org/post"}}'
+# Expected: {"message":"Integration created",...}
+
+# Quick audit export
+curl -s -X POST http://localhost:9000/admin/audit-exports/now \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"format":"csv"}' -o audit_export.csv
+# Expected: CSV file downloaded
+```
+
+### 8.5 Assets API
+```bash
+# Create asset
+curl -s -X POST http://localhost:9000/admin/assets \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Dev Laptop","type":"laptop","location":"Office A","department":"Engineering"}'
+# Expected: {"message":"Asset created","asset":{"asset_tag":"LPT-0001",...}}
+
+# List assets
+curl -s http://localhost:9000/admin/assets \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: {"items":[...],"total":1,...}
+
+# Get asset stats
+curl -s http://localhost:9000/admin/assets/stats \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: {"total":1,"by_type":{"laptop":1},...}
+```
+
+### 8.6 UI Tests for Enterprise Features
+
+| Page | URL | Test |
+|------|-----|------|
+| Service Accounts | `/ui/service-accounts` | Create account, generate key |
+| Notifications | `/ui/notifications` | Create channel, test delivery |
+| Alert Rules | `/ui/alert-rules` | Create rule, view history |
+| Integrations | `/ui/integrations` | Create webhook, view logs |
+| Audit Export | `/ui/audit-export` | Quick export, create job |
+| Assets | `/ui/assets` | Create asset, view detail |
+
+---
+
 ## Service Endpoints Summary
 
 | Service | URL | Purpose |
 |---------|-----|---------|
 | API | http://localhost:9000 | Flask backend |
 | Health | http://localhost:9000/healthz | Health check |
+| Features | http://localhost:9000/features | Feature flags |
 | Admin UI | http://localhost:3001 | React frontend |
 | Postgres | localhost:5432 | Database |
 | LocalStack | http://localhost:4566 | S3-compatible storage |
 | LocalStack Health | http://localhost:4566/_localstack/health | LocalStack status |
+
+---
+
+## API Endpoints Reference
+
+### Core Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/healthz` | Health check |
+| GET | `/features` | Feature flags |
+| POST | `/auth/register` | Register user |
+| POST | `/auth/login` | Login |
+| GET | `/auth/me` | Current user |
+
+### Admin Endpoints (require admin role)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/admin/users` | List users |
+| GET | `/admin/uploads` | List uploads |
+| GET | `/admin/jobs` | List jobs |
+| GET | `/admin/audit-logs` | List audit logs |
+
+### Enterprise Endpoints (feature-flagged)
+| Method | Endpoint | Feature Flag |
+|--------|----------|--------------|
+| GET/POST | `/admin/service-accounts` | FEATURE_SERVICE_ACCOUNTS |
+| GET/POST | `/admin/notification-channels` | FEATURE_NOTIFICATIONS |
+| GET/POST | `/admin/alert-rules` | FEATURE_NOTIFICATIONS |
+| GET | `/admin/alerts` | FEATURE_NOTIFICATIONS |
+| GET/POST | `/admin/integrations` | FEATURE_INTEGRATIONS |
+| GET/POST | `/admin/audit-exports` | FEATURE_INTEGRATIONS |
+| GET/POST | `/admin/assets` | FEATURE_ASSETS |

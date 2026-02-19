@@ -16,6 +16,12 @@ class Config:
     # JWT
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
 
+    # Feature flags (enterprise modules - default ON for development)
+    FEATURE_SERVICE_ACCOUNTS = os.environ.get("FEATURE_SERVICE_ACCOUNTS", "true").lower() == "true"
+    FEATURE_NOTIFICATIONS = os.environ.get("FEATURE_NOTIFICATIONS", "true").lower() == "true"
+    FEATURE_INTEGRATIONS = os.environ.get("FEATURE_INTEGRATIONS", "true").lower() == "true"
+    FEATURE_ASSETS = os.environ.get("FEATURE_ASSETS", "true").lower() == "true"
+
     @classmethod
     def validate(cls):
         """Validate required config in production."""

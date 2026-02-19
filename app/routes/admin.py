@@ -14,6 +14,7 @@ from app.utils.audit import (
     log_user_disabled,
     log_user_enabled,
 )
+from app.utils.events import emit_user_created, emit_user_disabled, emit_user_role_changed
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -120,6 +121,12 @@ def create_user():
     # Audit log
     log_user_created(actor, new_user)
 
+    # Emit event for alert rules
+    try:
+        emit_user_created(new_user, actor)
+    except Exception:
+        pass  # Never let event emission break the main flow
+
     return jsonify({"message": "User created", "user": new_user.to_dict()}), 201
 
 
@@ -163,6 +170,11 @@ def update_user(user_id):
             target.role = new_role
             changes["role"] = {"from": old_role, "to": new_role}
             log_role_changed(actor, target, old_role, new_role)
+            # Emit event for alert rules
+            try:
+                emit_user_role_changed(target, actor, old_role, new_role)
+            except Exception:
+                pass
 
     # Handle is_active change
     if "is_active" in data:
@@ -182,6 +194,11 @@ def update_user(user_id):
                 log_user_enabled(actor, target)
             else:
                 log_user_disabled(actor, target)
+                # Emit event for alert rules
+                try:
+                    emit_user_disabled(target, actor)
+                except Exception:
+                    pass
 
     if changes:
         db.session.commit()

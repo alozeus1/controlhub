@@ -6,3 +6,5 @@ export { default as Modal, ConfirmModal } from './Modal';
 export { ToastProvider, useToast } from './Toast';
 export { default as Spinner, PageLoader, TableLoader } from './Spinner';
 export { default as Pagination } from './Pagination';
+export { default as Dropdown, DropdownItem, DropdownDivider } from './Dropdown';
+export { default as Tooltip } from './Tooltip';

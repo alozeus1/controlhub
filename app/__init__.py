@@ -26,11 +26,21 @@ def create_app():
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
     from app.routes.uploads import uploads_bp
+    from app.routes.governance import governance_bp
+    from app.routes.service_accounts import service_accounts_bp
+    from app.routes.notifications import notifications_bp
+    from app.routes.integrations import integrations_bp
+    from app.routes.assets import assets_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(uploads_bp, url_prefix="/admin")  # Upload routes under /admin
+    app.register_blueprint(governance_bp, url_prefix="/admin")  # Governance routes under /admin
+    app.register_blueprint(service_accounts_bp, url_prefix="/admin")  # Service accounts under /admin
+    app.register_blueprint(notifications_bp, url_prefix="/admin")  # Notifications under /admin
+    app.register_blueprint(integrations_bp, url_prefix="/admin")  # Integrations under /admin
+    app.register_blueprint(assets_bp, url_prefix="/admin")  # Assets under /admin
     app.register_blueprint(ui_bp, url_prefix="/ui")
 
     return app

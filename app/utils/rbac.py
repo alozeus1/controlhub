@@ -8,7 +8,7 @@ Role hierarchy (higher = more privileges):
 - user (1): Basic user, no admin panel access
 """
 from functools import wraps
-from flask import jsonify, request
+from flask import jsonify, request, current_app, g
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from app.models import User, ROLE_LEVELS
 
@@ -27,6 +27,8 @@ def require_role(min_role):
     """
     Decorator that requires a minimum role level.
     Also enforces is_active check on every protected request.
+    
+    Supports both JWT authentication and API key authentication.
 
     Usage:
         @require_role("viewer")  # viewer, admin, superadmin can access
@@ -36,7 +38,35 @@ def require_role(min_role):
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            # Verify JWT first
+            # First, try API key authentication if feature is enabled
+            if current_app.config.get("FEATURE_SERVICE_ACCOUNTS", False):
+                api_key_value = request.headers.get("X-API-Key")
+                if api_key_value:
+                    from app.services.service_accounts import ApiKeyService
+                    api_key = ApiKeyService.validate_key(api_key_value)
+                    
+                    if not api_key:
+                        return jsonify({"error": "Invalid API key", "code": "INVALID_API_KEY"}), 401
+                    
+                    # Store API key and service account in request context
+                    g.api_key = api_key
+                    g.service_account = api_key.service_account
+                    
+                    # Service accounts get admin-level access by default
+                    # They can access any endpoint that requires viewer or admin
+                    min_level = ROLE_LEVELS.get(min_role, 0)
+                    if min_level > ROLE_LEVELS.get("admin", 50):
+                        return jsonify({
+                            "error": "API keys cannot access superadmin endpoints",
+                            "code": "INSUFFICIENT_PERMISSIONS"
+                        }), 403
+                    
+                    # For API key auth, we need a "pseudo" user for request.current_user
+                    # Use the service account's creator as the acting user
+                    request.current_user = api_key.service_account.creator
+                    return fn(*args, **kwargs)
+            
+            # Fall back to JWT authentication
             try:
                 verify_jwt_in_request()
             except Exception as e:

@@ -16,6 +16,7 @@ from app.utils.audit import (
     log_upload_downloaded,
     log_upload_deleted,
 )
+from app.utils.events import emit_upload_created, emit_upload_deleted
 from app.storage.s3 import (
     upload_file,
     generate_presigned_download_url,
@@ -97,6 +98,12 @@ def create_upload():
         
         # Audit log
         log_upload_created(actor, upload)
+        
+        # Emit event for alert rules
+        try:
+            emit_upload_created(upload, actor)
+        except Exception:
+            pass  # Never let event emission break the main flow
         
         return jsonify({
             "message": "File uploaded successfully",
@@ -236,10 +243,13 @@ def delete_upload(upload_id):
     
     Returns:
         200: Upload deleted
+        202: Approval required - request created
         404: Upload not found
         410: Already deleted
         500: S3 delete failed
     """
+    from app.routes.governance import check_policy
+    
     actor = request.current_user
     upload = FileUpload.query.get(upload_id)
     
@@ -248,6 +258,23 @@ def delete_upload(upload_id):
     
     if upload.is_deleted:
         return jsonify({"error": "Upload already deleted"}), 410
+    
+    # Check if policy requires approval
+    requires_approval, policy, approval_request = check_policy(
+        action="upload.delete",
+        actor=actor,
+        target_type="upload",
+        target_id=upload.id,
+        target_label=upload.original_filename,
+        request_data={"s3_key": upload.s3_key},
+    )
+    
+    if requires_approval and approval_request:
+        return jsonify({
+            "message": "Approval required for this action",
+            "code": "APPROVAL_REQUIRED",
+            "approval_request": approval_request.to_dict(),
+        }), 202
     
     try:
         # Delete from S3
@@ -260,6 +287,12 @@ def delete_upload(upload_id):
         # Audit log
         log_upload_deleted(actor, upload)
         
+        # Emit event for alert rules
+        try:
+            emit_upload_deleted(upload, actor)
+        except Exception:
+            pass  # Never let event emission break the main flow
+        
         return jsonify({
             "message": "Upload deleted successfully",
             "upload_id": upload_id,
@@ -267,3 +300,30 @@ def delete_upload(upload_id):
         
     except ClientError as e:
         return jsonify({"error": f"Failed to delete from S3: {str(e)}"}), 500
+
+
+@uploads_bp.get("/storage/status")
+@require_role("viewer")
+def get_storage_status():
+    """
+    Get storage configuration status.
+    
+    Returns:
+        200: Storage status with provider, bucket, region, last_upload_at
+    """
+    config = get_storage_config()
+    
+    # Get most recent upload
+    latest_upload = (
+        FileUpload.query
+        .filter(FileUpload.deleted_at.is_(None))
+        .order_by(FileUpload.created_at.desc())
+        .first()
+    )
+    
+    return jsonify({
+        "provider": config["provider"],
+        "bucket": config["bucket_name"],
+        "region": config["region"],
+        "last_upload_at": latest_upload.created_at.isoformat() if latest_upload else None,
+    })

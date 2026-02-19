@@ -1,0 +1,114 @@
+.audit-export-page {
+  max-width: 1200px;
+}
+
+.page-header {
+  margin-bottom: var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-xs);
+}
+
+.breadcrumb a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.page-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  margin: var(--spacing-xs) 0 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.job-name {
+  font-weight: var(--font-weight-medium);
+}
+
+.timestamp {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.action-buttons .danger {
+  color: var(--color-error);
+}
+
+/* Form Styles */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+
+.help-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-xl);
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.7;
+}
+
+.empty-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.empty-state-text {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--spacing-lg);
+}
+
+.empty-state-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+}

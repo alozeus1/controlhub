@@ -100,6 +100,14 @@ All reusable components are in `/admin-ui/src/components/ui/`
 | Toast | `Toast.jsx` | Notifications with ToastProvider |
 | Spinner | `Spinner.jsx` | Loading indicators, PageLoader, TableLoader |
 | Pagination | `Pagination.jsx` | Page navigation controls |
+| Dropdown | `Dropdown.jsx` | Dropdown menu component |
+| Tooltip | `Tooltip.jsx` | Tooltip component |
+
+### Contexts
+
+| Context | File | Description |
+|---------|------|-------------|
+| FeaturesContext | `contexts/FeaturesContext.jsx` | Feature flag management, fetches from `/features` endpoint |
 
 ### Usage
 ```jsx
@@ -127,9 +135,10 @@ function MyComponent() {
 
 ### Sidebar
 - Width: 260px (fixed)
-- Sections: Overview, Management, System
+- Sections: Overview, Management, Governance, Enterprise (conditional), System
 - Header: logo-icon.svg + "ControlHub" text with "by Web Forx Global Inc." subtitle
 - Footer: Web Forx Global Inc. link
+- Enterprise section appears only when features are enabled (dynamic)
 
 ### Top Navigation
 - Height: 64px (fixed)
@@ -170,12 +179,27 @@ If creating custom logo assets, use these specifications:
 ## Icon Usage
 
 Currently using emoji icons for simplicity:
+
+### Core Navigation
 - 📊 Dashboard
 - 👥 Users
 - 📁 Uploads
-- ⚙️ Jobs/Settings
+- ⚙️ Jobs
 - 📋 Audit Logs
 - 🔧 Settings
+
+### Governance
+- ✅ Approvals
+- 📜 Policies
+
+### Enterprise Features
+- 🔑 Service Accounts
+- 🔔 Notifications
+- ⚡ Alert Rules
+- 🔗 Integrations
+- 🖥️ Assets
+
+### Auth
 - 🔑 Login
 - 🚪 Logout
 
