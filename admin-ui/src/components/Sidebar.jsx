@@ -17,6 +17,22 @@ const getNavItems = (features) => {
       { to: "/ui/approvals", icon: "✅", label: "Approvals" },
       { to: "/ui/policies", icon: "📜", label: "Policies" },
     ]},
+    { section: "Security", items: [
+      { to: "/ui/secrets", icon: "🔐", label: "Secrets" },
+      { to: "/ui/certificates", icon: "🛡️", label: "Certificates" },
+      { to: "/ui/feature-flags", icon: "🚩", label: "Feature Flags" },
+    ]},
+    { section: "DevOps", items: [
+      { to: "/ui/env-config", icon: "🗂️", label: "Env Config" },
+      { to: "/ui/deployments", icon: "🚀", label: "Deployments" },
+      { to: "/ui/incidents", icon: "🚨", label: "Incidents" },
+      { to: "/ui/runbooks", icon: "📖", label: "Runbooks" },
+    ]},
+    { section: "Operations", items: [
+      { to: "/ui/workflows", icon: "🔄", label: "Workflows" },
+      { to: "/ui/licenses", icon: "📄", label: "Licenses" },
+      { to: "/ui/costs", icon: "💰", label: "Cost Tracker" },
+    ]},
   ];
 
   const enterpriseItems = [];

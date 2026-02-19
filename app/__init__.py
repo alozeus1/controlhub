@@ -58,6 +58,16 @@ def create_app():
     from app.routes.notifications import notifications_bp
     from app.routes.integrations import integrations_bp
     from app.routes.assets import assets_bp
+    from app.routes.secrets import secrets_bp
+    from app.routes.env_configs import env_configs_bp
+    from app.routes.incidents import incidents_bp
+    from app.routes.runbooks import runbooks_bp
+    from app.routes.deployments import deployments_bp
+    from app.routes.certificates import certificates_bp
+    from app.routes.feature_flags import feature_flags_bp
+    from app.routes.licenses import licenses_bp
+    from app.routes.workflows import workflows_bp
+    from app.routes.costs import costs_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -68,6 +78,16 @@ def create_app():
     app.register_blueprint(notifications_bp, url_prefix="/admin")
     app.register_blueprint(integrations_bp, url_prefix="/admin")
     app.register_blueprint(assets_bp, url_prefix="/admin")
+    app.register_blueprint(secrets_bp, url_prefix="/admin")
+    app.register_blueprint(env_configs_bp, url_prefix="/admin")
+    app.register_blueprint(incidents_bp, url_prefix="/admin")
+    app.register_blueprint(runbooks_bp, url_prefix="/admin")
+    app.register_blueprint(deployments_bp, url_prefix="/admin")
+    app.register_blueprint(certificates_bp, url_prefix="/admin")
+    app.register_blueprint(feature_flags_bp, url_prefix="/admin")
+    app.register_blueprint(licenses_bp, url_prefix="/admin")
+    app.register_blueprint(workflows_bp, url_prefix="/admin")
+    app.register_blueprint(costs_bp, url_prefix="/admin")
     app.register_blueprint(ui_bp, url_prefix="/ui")
 
     return app

@@ -24,6 +24,19 @@ import IntegrationLogs from "./pages/IntegrationLogs";
 import AuditExport from "./pages/AuditExport";
 import Assets from "./pages/Assets";
 import AssetDetail from "./pages/AssetDetail";
+import Secrets from "./pages/Secrets";
+import EnvConfig from "./pages/EnvConfig";
+import Incidents from "./pages/Incidents";
+import IncidentDetail from "./pages/IncidentDetail";
+import Runbooks from "./pages/Runbooks";
+import RunbookDetail from "./pages/RunbookDetail";
+import Deployments from "./pages/Deployments";
+import Certificates from "./pages/Certificates";
+import FeatureFlags from "./pages/FeatureFlags";
+import Licenses from "./pages/Licenses";
+import Workflows from "./pages/Workflows";
+import WorkflowRunDetail from "./pages/WorkflowRunDetail";
+import Costs from "./pages/Costs";
 import Settings from "./pages/Settings";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
@@ -68,6 +81,20 @@ export default function App() {
             <Route path="/ui/audit-export" element={<AuditExport />} />
             <Route path="/ui/assets" element={<Assets />} />
             <Route path="/ui/assets/:id" element={<AssetDetail />} />
+            {/* New Feature Routes */}
+            <Route path="/ui/secrets" element={<Secrets />} />
+            <Route path="/ui/env-config" element={<EnvConfig />} />
+            <Route path="/ui/incidents" element={<Incidents />} />
+            <Route path="/ui/incidents/:id" element={<IncidentDetail />} />
+            <Route path="/ui/runbooks" element={<Runbooks />} />
+            <Route path="/ui/runbooks/:id" element={<RunbookDetail />} />
+            <Route path="/ui/deployments" element={<Deployments />} />
+            <Route path="/ui/certificates" element={<Certificates />} />
+            <Route path="/ui/feature-flags" element={<FeatureFlags />} />
+            <Route path="/ui/licenses" element={<Licenses />} />
+            <Route path="/ui/workflows" element={<Workflows />} />
+            <Route path="/ui/workflows/runs/:id" element={<WorkflowRunDetail />} />
+            <Route path="/ui/costs" element={<Costs />} />
             <Route path="/ui/settings" element={<Settings />} />
             <Route path="/ui/privacy" element={<Privacy />} />
             <Route path="/ui/support" element={<Support />} />

@@ -691,3 +691,450 @@ class AuditLog(db.Model):
             "user_agent": self.user_agent,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# ─── SECRETS MANAGER ─────────────────────────────────────────────────────────
+
+import base64
+from cryptography.fernet import Fernet
+
+class Secret(db.Model):
+    __tablename__ = "secret"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    project = db.Column(db.String(100), nullable=True)
+    environment = db.Column(db.String(50), nullable=True)  # dev/staging/prod/all
+    value_encrypted = db.Column(db.Text, nullable=False)  # Fernet encrypted
+    tags = db.Column(db.JSON, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    last_rotated_at = db.Column(db.DateTime, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creator = db.relationship("User", backref="created_secrets", foreign_keys=[created_by_id])
+
+    def to_dict(self, include_value=False):
+        d = {
+            "id": self.id, "name": self.name, "description": self.description,
+            "project": self.project, "environment": self.environment,
+            "tags": self.tags,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "last_rotated_at": self.last_rotated_at.isoformat() if self.last_rotated_at else None,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_value:
+            d["value"] = self.value_encrypted  # caller must decrypt
+        return d
+
+class SecretAccessLog(db.Model):
+    __tablename__ = "secret_access_log"
+    id = db.Column(db.Integer, primary_key=True)
+    secret_id = db.Column(db.Integer, db.ForeignKey("secret.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    action = db.Column(db.String(20), nullable=False)  # read, update, delete
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    secret = db.relationship("Secret", backref="access_logs")
+    user = db.relationship("User", backref="secret_access_logs")
+    def to_dict(self):
+        return {"id": self.id, "secret_id": self.secret_id, "user_email": self.user.email if self.user else None,
+                "action": self.action, "ip_address": self.ip_address,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+# ─── ENVIRONMENT CONFIG MANAGER ──────────────────────────────────────────────
+
+class EnvProject(db.Model):
+    __tablename__ = "env_project"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    creator = db.relationship("User", backref="created_env_projects", foreign_keys=[created_by_id])
+    def to_dict(self):
+        return {"id": self.id, "name": self.name, "description": self.description,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+class EnvConfig(db.Model):
+    __tablename__ = "env_config"
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("env_project.id"), nullable=False)
+    environment = db.Column(db.String(50), nullable=False)  # dev, staging, prod
+    key = db.Column(db.String(200), nullable=False)
+    value = db.Column(db.Text, nullable=True)
+    is_secret = db.Column(db.Boolean, default=False)  # mask in UI
+    description = db.Column(db.Text, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    project = db.relationship("EnvProject", backref="configs")
+    creator = db.relationship("User", foreign_keys=[created_by_id])
+    updater = db.relationship("User", foreign_keys=[updated_by_id])
+    __table_args__ = (db.UniqueConstraint("project_id", "environment", "key", name="uq_env_config"),)
+    def to_dict(self, show_secrets=False):
+        val = self.value if (show_secrets or not self.is_secret) else "***"
+        return {"id": self.id, "project_id": self.project_id, "environment": self.environment,
+                "key": self.key, "value": val, "is_secret": self.is_secret,
+                "description": self.description, "created_by_id": self.created_by_id,
+                "updated_by_id": self.updated_by_id,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+# ─── INCIDENT MANAGEMENT ─────────────────────────────────────────────────────
+
+class Incident(db.Model):
+    __tablename__ = "incident"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    severity = db.Column(db.String(10), nullable=False, default="p3")  # p1,p2,p3,p4
+    status = db.Column(db.String(20), nullable=False, default="open")  # open,investigating,resolved,closed
+    affected_services = db.Column(db.JSON, nullable=True)
+    commander_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    root_cause = db.Column(db.Text, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    commander = db.relationship("User", backref="commanded_incidents", foreign_keys=[commander_id])
+    creator = db.relationship("User", backref="created_incidents", foreign_keys=[created_by_id])
+    def to_dict(self):
+        return {"id": self.id, "title": self.title, "description": self.description,
+                "severity": self.severity, "status": self.status,
+                "affected_services": self.affected_services,
+                "commander_id": self.commander_id,
+                "commander_email": self.commander.email if self.commander else None,
+                "started_at": self.started_at.isoformat() if self.started_at else None,
+                "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+                "root_cause": self.root_cause,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+class IncidentUpdate(db.Model):
+    __tablename__ = "incident_update"
+    id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey("incident.id"), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status_change = db.Column(db.String(20), nullable=True)  # new status if changed
+    posted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    incident = db.relationship("Incident", backref="updates")
+    poster = db.relationship("User", backref="incident_updates")
+    def to_dict(self):
+        return {"id": self.id, "incident_id": self.incident_id, "message": self.message,
+                "status_change": self.status_change,
+                "posted_by_id": self.posted_by_id,
+                "poster_email": self.poster.email if self.poster else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+# ─── RUNBOOK / WIKI ───────────────────────────────────────────────────────────
+
+class Runbook(db.Model):
+    __tablename__ = "runbook"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(255), unique=True, nullable=False)
+    content_md = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(100), nullable=True)
+    tags = db.Column(db.JSON, nullable=True)
+    is_published = db.Column(db.Boolean, default=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creator = db.relationship("User", backref="created_runbooks", foreign_keys=[created_by_id])
+    updater = db.relationship("User", backref="updated_runbooks", foreign_keys=[updated_by_id])
+    def to_dict(self):
+        return {"id": self.id, "title": self.title, "slug": self.slug,
+                "content_md": self.content_md, "category": self.category, "tags": self.tags,
+                "is_published": self.is_published,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "updated_by_id": self.updated_by_id,
+                "updater_email": self.updater.email if self.updater else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+# ─── DEPLOYMENT TRACKER ───────────────────────────────────────────────────────
+
+class Deployment(db.Model):
+    __tablename__ = "deployment"
+    id = db.Column(db.Integer, primary_key=True)
+    service_name = db.Column(db.String(100), nullable=False)
+    version = db.Column(db.String(100), nullable=False)
+    environment = db.Column(db.String(50), nullable=False)  # dev,staging,prod
+    status = db.Column(db.String(20), default="success")  # success,failed,in_progress,rolled_back
+    is_rollback = db.Column(db.Boolean, default=False)
+    deployed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    deployed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text, nullable=True)
+    pipeline_url = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    deployer = db.relationship("User", backref="deployments", foreign_keys=[deployed_by_id])
+    def to_dict(self):
+        return {"id": self.id, "service_name": self.service_name, "version": self.version,
+                "environment": self.environment, "status": self.status,
+                "is_rollback": self.is_rollback,
+                "deployed_by_id": self.deployed_by_id,
+                "deployer_email": self.deployer.email if self.deployer else None,
+                "deployed_at": self.deployed_at.isoformat() if self.deployed_at else None,
+                "notes": self.notes, "pipeline_url": self.pipeline_url,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+# ─── CERTIFICATE TRACKER ──────────────────────────────────────────────────────
+
+class Certificate(db.Model):
+    __tablename__ = "certificate"
+    id = db.Column(db.Integer, primary_key=True)
+    domain = db.Column(db.String(255), nullable=False)
+    issuer = db.Column(db.String(255), nullable=True)
+    environment = db.Column(db.String(50), nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    auto_renew = db.Column(db.Boolean, default=False)
+    notes = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.JSON, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creator = db.relationship("User", backref="created_certificates", foreign_keys=[created_by_id])
+    @property
+    def days_until_expiry(self):
+        return (self.expires_at - datetime.utcnow()).days
+    @property
+    def status(self):
+        d = self.days_until_expiry
+        if d < 0: return "expired"
+        if d <= 7: return "critical"
+        if d <= 30: return "warning"
+        return "ok"
+    def to_dict(self):
+        return {"id": self.id, "domain": self.domain, "issuer": self.issuer,
+                "environment": self.environment,
+                "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+                "days_until_expiry": self.days_until_expiry, "status": self.status,
+                "auto_renew": self.auto_renew, "notes": self.notes, "tags": self.tags,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+# ─── FEATURE FLAGS ────────────────────────────────────────────────────────────
+
+class FeatureFlag(db.Model):
+    __tablename__ = "feature_flag"
+    id = db.Column(db.Integer, primary_key=True)
+    project = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    key = db.Column(db.String(100), nullable=False)  # slug-style key
+    description = db.Column(db.Text, nullable=True)
+    flag_type = db.Column(db.String(20), default="boolean")  # boolean, percentage
+    value = db.Column(db.JSON, nullable=True)  # true/false or 0-100
+    is_enabled = db.Column(db.Boolean, default=False)
+    environments = db.Column(db.JSON, nullable=True)  # per-env overrides {dev: true, prod: false}
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creator = db.relationship("User", backref="created_feature_flags", foreign_keys=[created_by_id])
+    __table_args__ = (db.UniqueConstraint("project", "key", name="uq_feature_flag"),)
+    def to_dict(self):
+        return {"id": self.id, "project": self.project, "name": self.name, "key": self.key,
+                "description": self.description, "flag_type": self.flag_type,
+                "value": self.value, "is_enabled": self.is_enabled,
+                "environments": self.environments,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+# ─── LICENSE TRACKER ──────────────────────────────────────────────────────────
+
+class License(db.Model):
+    __tablename__ = "license"
+    id = db.Column(db.Integer, primary_key=True)
+    vendor = db.Column(db.String(100), nullable=False)
+    product = db.Column(db.String(100), nullable=False)
+    license_type = db.Column(db.String(50), nullable=True)  # per-seat, site, subscription
+    seats = db.Column(db.Integer, nullable=True)
+    seats_used = db.Column(db.Integer, nullable=True)
+    cost_monthly = db.Column(db.Numeric(12, 2), nullable=True)
+    renewal_date = db.Column(db.Date, nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="active")  # active, expired, cancelled
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    owner = db.relationship("User", backref="owned_licenses", foreign_keys=[owner_id])
+    creator = db.relationship("User", backref="created_licenses", foreign_keys=[created_by_id])
+    @property
+    def days_until_renewal(self):
+        if not self.renewal_date:
+            return None
+        from datetime import date
+        return (self.renewal_date - date.today()).days
+    def to_dict(self):
+        return {"id": self.id, "vendor": self.vendor, "product": self.product,
+                "license_type": self.license_type, "seats": self.seats,
+                "seats_used": self.seats_used,
+                "cost_monthly": float(self.cost_monthly) if self.cost_monthly else None,
+                "renewal_date": self.renewal_date.isoformat() if self.renewal_date else None,
+                "days_until_renewal": self.days_until_renewal,
+                "owner_id": self.owner_id,
+                "owner_email": self.owner.email if self.owner else None,
+                "notes": self.notes, "status": self.status,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+# ─── ONBOARDING / OFFBOARDING WORKFLOWS ──────────────────────────────────────
+
+class WorkflowTemplate(db.Model):
+    __tablename__ = "workflow_template"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    workflow_type = db.Column(db.String(20), nullable=False)  # onboarding, offboarding, custom
+    description = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    creator = db.relationship("User", backref="created_workflow_templates", foreign_keys=[created_by_id])
+    def to_dict(self):
+        return {"id": self.id, "name": self.name, "workflow_type": self.workflow_type,
+                "description": self.description, "is_active": self.is_active,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "step_count": len(self.steps)}
+
+class WorkflowTemplateStep(db.Model):
+    __tablename__ = "workflow_template_step"
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey("workflow_template.id"), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    assignee_role = db.Column(db.String(50), nullable=True)  # role to assign to
+    template = db.relationship("WorkflowTemplate", backref="steps")
+    def to_dict(self):
+        return {"id": self.id, "template_id": self.template_id, "order": self.order,
+                "title": self.title, "description": self.description,
+                "assignee_role": self.assignee_role}
+
+class WorkflowRun(db.Model):
+    __tablename__ = "workflow_run"
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey("workflow_template.id"), nullable=False)
+    subject_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    subject_name = db.Column(db.String(200), nullable=True)  # for non-user subjects
+    status = db.Column(db.String(20), default="active")  # active, completed, cancelled
+    started_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    template = db.relationship("WorkflowTemplate", backref="runs")
+    subject_user = db.relationship("User", backref="workflow_runs_as_subject", foreign_keys=[subject_user_id])
+    starter = db.relationship("User", backref="started_workflow_runs", foreign_keys=[started_by_id])
+    def to_dict(self):
+        completed = sum(1 for s in self.run_steps if s.status == "completed")
+        total = len(self.run_steps)
+        return {"id": self.id, "template_id": self.template_id,
+                "template_name": self.template.name if self.template else None,
+                "workflow_type": self.template.workflow_type if self.template else None,
+                "subject_user_id": self.subject_user_id,
+                "subject_email": self.subject_user.email if self.subject_user else None,
+                "subject_name": self.subject_name,
+                "status": self.status,
+                "started_by_id": self.started_by_id,
+                "starter_email": self.starter.email if self.starter else None,
+                "progress": {"completed": completed, "total": total},
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "completed_at": self.completed_at.isoformat() if self.completed_at else None}
+
+class WorkflowRunStep(db.Model):
+    __tablename__ = "workflow_run_step"
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey("workflow_run.id"), nullable=False)
+    template_step_id = db.Column(db.Integer, db.ForeignKey("workflow_template_step.id"), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="pending")  # pending, completed, skipped
+    assigned_to_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    completed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    run = db.relationship("WorkflowRun", backref="run_steps")
+    assigned_to = db.relationship("User", backref="assigned_workflow_steps", foreign_keys=[assigned_to_id])
+    completed_by = db.relationship("User", backref="completed_workflow_steps", foreign_keys=[completed_by_id])
+    def to_dict(self):
+        return {"id": self.id, "run_id": self.run_id, "order": self.order,
+                "title": self.title, "description": self.description, "status": self.status,
+                "assigned_to_id": self.assigned_to_id,
+                "assigned_to_email": self.assigned_to.email if self.assigned_to else None,
+                "completed_by_id": self.completed_by_id,
+                "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+                "notes": self.notes}
+
+# ─── COST ALLOCATION ──────────────────────────────────────────────────────────
+
+class CostEntry(db.Model):
+    __tablename__ = "cost_entry"
+    id = db.Column(db.Integer, primary_key=True)
+    cloud_provider = db.Column(db.String(30), nullable=False)  # aws, gcp, azure, other
+    service_name = db.Column(db.String(100), nullable=False)  # EC2, RDS, etc.
+    team = db.Column(db.String(100), nullable=True)
+    project = db.Column(db.String(100), nullable=True)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    currency = db.Column(db.String(3), default="USD")
+    period = db.Column(db.String(7), nullable=False)  # YYYY-MM
+    notes = db.Column(db.Text, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    creator = db.relationship("User", backref="created_cost_entries", foreign_keys=[created_by_id])
+    def to_dict(self):
+        return {"id": self.id, "cloud_provider": self.cloud_provider,
+                "service_name": self.service_name, "team": self.team, "project": self.project,
+                "amount": float(self.amount), "currency": self.currency,
+                "period": self.period, "notes": self.notes,
+                "created_by_id": self.created_by_id,
+                "creator_email": self.creator.email if self.creator else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+class BudgetRequest(db.Model):
+    __tablename__ = "budget_request"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    team = db.Column(db.String(100), nullable=True)
+    project = db.Column(db.String(100), nullable=True)
+    amount_requested = db.Column(db.Numeric(12, 2), nullable=False)
+    currency = db.Column(db.String(3), default="USD")
+    justification = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="pending")  # pending, approved, rejected
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    review_notes = db.Column(db.Text, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    requester = db.relationship("User", backref="budget_requests", foreign_keys=[requested_by_id])
+    reviewer = db.relationship("User", backref="reviewed_budget_requests", foreign_keys=[reviewed_by_id])
+    def to_dict(self):
+        return {"id": self.id, "title": self.title, "team": self.team, "project": self.project,
+                "amount_requested": float(self.amount_requested), "currency": self.currency,
+                "justification": self.justification, "status": self.status,
+                "reviewed_by_id": self.reviewed_by_id,
+                "reviewer_email": self.reviewer.email if self.reviewer else None,
+                "review_notes": self.review_notes,
+                "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+                "requested_by_id": self.requested_by_id,
+                "requester_email": self.requester.email if self.requester else None,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
