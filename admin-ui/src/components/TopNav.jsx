@@ -14,7 +14,7 @@ const pageNames = {
   support: "Support",
 };
 
-export default function TopNav() {
+export default function TopNav({ onMenuToggle }) {
   const { pathname } = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -24,7 +24,8 @@ export default function TopNav() {
   const pageTitle = pageNames[pageName] || pageName;
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser =
+      sessionStorage.getItem("user") || localStorage.getItem("user");
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
@@ -53,10 +54,22 @@ export default function TopNav() {
   return (
     <header className="topnav">
       <div className="topnav-left">
+        {/* Hamburger — mobile only */}
+        <button
+          className="topnav-hamburger"
+          onClick={onMenuToggle}
+          aria-label="Open navigation menu"
+        >
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+        </button>
+
         <Link to="/ui/dashboard" className="topnav-brand">
           <img src={logoIcon} alt="Web Forx" className="topnav-brand-logo" />
           <span className="topnav-brand-text">Web Forx <span>ControlHub</span></span>
         </Link>
+
         <nav className="topnav-breadcrumbs">
           <Link to="/ui/dashboard" className="topnav-breadcrumb-link">Home</Link>
           <span className="topnav-breadcrumb-separator">/</span>

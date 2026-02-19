@@ -37,10 +37,31 @@
 }
 
 /* Sizes */
-.modal-sm { width: 400px; }
-.modal-md { width: 560px; }
-.modal-lg { width: 720px; }
-.modal-xl { width: 900px; }
+.modal-sm { width: min(400px, 95vw); }
+.modal-md { width: min(560px, 95vw); }
+.modal-lg { width: min(720px, 95vw); }
+.modal-xl { width: min(900px, 95vw); }
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: var(--spacing-sm);
+    align-items: flex-end;
+  }
+
+  .modal {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 90vh;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .modal-footer button {
+    flex: 1;
+    min-height: 44px;
+  }
+}
 
 .modal-header {
   display: flex;

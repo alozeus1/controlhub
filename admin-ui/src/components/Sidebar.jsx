@@ -19,9 +19,8 @@ const getNavItems = (features) => {
     ]},
   ];
 
-  // Add enterprise features conditionally
   const enterpriseItems = [];
-  
+
   if (features.service_accounts) {
     enterpriseItems.push({ to: "/ui/service-accounts", icon: "🔑", label: "Service Accounts" });
   }
@@ -48,46 +47,63 @@ const getNavItems = (features) => {
   return items;
 };
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { features } = useFeatures();
   const navItems = getNavItems(features);
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <a href="/ui/dashboard" className="sidebar-logo">
-          <img src={logoIcon} alt="Web Forx" className="sidebar-logo-img" />
-          <div className="sidebar-logo-content">
-            <span className="sidebar-logo-text"><span>ControlHub</span></span>
-            <span className="sidebar-logo-subtitle">by Web Forx Global Inc.</span>
-          </div>
-        </a>
-      </div>
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div className="sidebar-backdrop" onClick={onClose} aria-hidden="true" />
+      )}
 
-      <nav className="sidebar-nav">
-        {navItems.map((group) => (
-          <div key={group.section} className="sidebar-section">
-            <div className="sidebar-section-title">{group.section}</div>
-            {group.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="sidebar-link-icon">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="sidebar-footer-brand">
-          <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx Global Inc.</a>
+      <aside className={`sidebar ${isOpen ? "sidebar-open" : ""}`}>
+        <div className="sidebar-header">
+          <a href="/ui/dashboard" className="sidebar-logo">
+            <img src={logoIcon} alt="Web Forx" className="sidebar-logo-img" />
+            <div className="sidebar-logo-content">
+              <span className="sidebar-logo-text"><span>ControlHub</span></span>
+              <span className="sidebar-logo-subtitle">by Web Forx Global Inc.</span>
+            </div>
+          </a>
+          {/* Mobile close button */}
+          <button
+            className="sidebar-close-btn"
+            onClick={onClose}
+            aria-label="Close sidebar"
+          >
+            ✕
+          </button>
         </div>
-      </div>
-    </aside>
+
+        <nav className="sidebar-nav">
+          {navItems.map((group) => (
+            <div key={group.section} className="sidebar-section">
+              <div className="sidebar-section-title">{group.section}</div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `sidebar-link ${isActive ? "active" : ""}`
+                  }
+                  onClick={onClose}
+                >
+                  <span className="sidebar-link-icon">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-footer-brand">
+            <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer">Web Forx Global Inc.</a>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

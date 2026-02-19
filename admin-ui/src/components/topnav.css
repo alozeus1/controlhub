@@ -13,10 +13,56 @@
   z-index: 40;
 }
 
+/* On mobile, topnav spans full width since sidebar is hidden */
+@media (max-width: 768px) {
+  .topnav {
+    left: 0;
+    padding: 0 var(--spacing-md);
+  }
+}
+
 .topnav-left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+/* Hamburger button — hidden on desktop */
+.topnav-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.topnav-hamburger:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--color-text-secondary);
+  border-radius: 2px;
+  transition: background var(--transition-fast);
+}
+
+.topnav-hamburger:hover .hamburger-line {
+  background: var(--color-text-primary);
+}
+
+@media (max-width: 768px) {
+  .topnav-hamburger {
+    display: flex;
+  }
 }
 
 .topnav-brand {
@@ -57,6 +103,13 @@
   font-size: var(--font-size-sm);
 }
 
+/* Hide breadcrumbs on small mobile */
+@media (max-width: 480px) {
+  .topnav-breadcrumbs {
+    display: none;
+  }
+}
+
 .topnav-breadcrumb-link {
   color: var(--color-text-muted);
   text-decoration: none;
@@ -80,6 +133,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  flex-shrink: 0;
 }
 
 .topnav-env-badge {
@@ -89,6 +143,13 @@
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* Hide env badge on very small screens */
+@media (max-width: 380px) {
+  .topnav-env-badge {
+    display: none;
+  }
 }
 
 .topnav-env-badge.dev {
@@ -115,6 +176,7 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--transition-fast);
+  min-height: 44px;
 }
 
 .topnav-user:hover {
@@ -132,11 +194,22 @@
   color: var(--color-text-inverse);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
+  flex-shrink: 0;
 }
 
 .topnav-user-info {
   display: flex;
   flex-direction: column;
+}
+
+/* Hide user info text on very small screens, show only avatar */
+@media (max-width: 480px) {
+  .topnav-user-info {
+    display: none;
+  }
+  .topnav-user {
+    padding: var(--spacing-xs);
+  }
 }
 
 .topnav-user-name {
@@ -186,6 +259,7 @@
   text-decoration: none;
   font-size: var(--font-size-sm);
   transition: all var(--transition-fast);
+  min-height: 44px;
 }
 
 .topnav-dropdown-item:hover {

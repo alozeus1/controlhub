@@ -377,3 +377,48 @@
     max-width: 120px;
   }
 }
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+  .uploads-table-container,
+  .table-container,
+  .table-responsive,
+  .data-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .uploads-filters,
+  .filters-bar,
+  .filter-row,
+  .search-form {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .uploads-filters input,
+  .uploads-filters select,
+  .filters-bar input,
+  .filters-bar select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .modal-content,
+  .modal-body,
+  [class*="-modal"] {
+    max-width: min(560px, 95vw) !important;
+    width: 95vw;
+  }
+
+  .storage-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  button,
+  .btn {
+    width: 100%;
+  }
+}

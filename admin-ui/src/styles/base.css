@@ -100,6 +100,13 @@ pre {
   overflow-x: auto;
 }
 
+/* Responsive table wrapper */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
 /* Tables */
 table {
   width: 100%;

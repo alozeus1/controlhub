@@ -177,3 +177,57 @@
     flex-wrap: wrap;
   }
 }
+
+/* ===== Mobile Responsive (extended) ===== */
+@media (max-width: 768px) {
+  .assets-table-container,
+  .table-container,
+  .assets-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .assets-filters,
+  .filters,
+  .filters-bar,
+  .filter-row {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .assets-filters input,
+  .assets-filters select,
+  .filters input,
+  .filters select,
+  .filters-bar input,
+  .filters-bar select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .modal-content,
+  .modal-body,
+  [class*="-modal"] {
+    max-width: min(560px, 95vw) !important;
+    width: 95vw;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons button,
+  .action-buttons a {
+    width: 100%;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .page-header button,
+  .page-header a {
+    width: 100%;
+  }
+}

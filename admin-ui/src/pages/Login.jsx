@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../utils/api";
+import { setTokens } from "../utils/auth";
 import controlhubLogo from "../assets/brand/controlhub-logo.svg";
 import webForxMark from "../assets/brand/web-forx-mark.png";
 import "./Login.css";
@@ -7,6 +9,7 @@ import "./Login.css";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,6 +27,9 @@ export default function Login() {
         return;
       }
 
+      setTokens(data.access_token, data.refresh_token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
+      // Preserve legacy key for components not yet migrated
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
@@ -37,59 +43,112 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-container">
-        <div className="login-card">
-          <div className="login-header">
-            <div className="login-logo">
-              <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-logo-img" />
-            </div>
-            <h1 className="login-title">Welcome back</h1>
-            <p className="login-subtitle">Sign in to access the control hub</p>
-          </div>
+      <div className="login-bg" />
 
-          {errorMsg && <div className="login-error">{errorMsg}</div>}
-
-          <form onSubmit={handleLogin} className="login-form">
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input
-                className="form-input"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                className="form-input"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <button className="login-button" type="submit" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
-        </div>
-
-        <div className="login-footer">
-          <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer" className="login-footer-brand">
-            <img src={webForxMark} alt="Web Forx" className="login-footer-mark" />
-          </a>
-          <p className="login-footer-text">
-            &copy; {new Date().getFullYear()} Web Forx Global Inc. Web Forx™. All rights reserved.
+      {/* Brand panel (hidden on mobile) */}
+      <div className="login-brand-panel">
+        <div className="login-brand-content">
+          <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-brand-logo" />
+          <h2 className="login-brand-title">Web Forx ControlHub</h2>
+          <p className="login-brand-subtitle">
+            Enterprise-grade admin platform for managing users, assets, and governance at scale.
           </p>
+          <div className="login-brand-features">
+            <div className="login-brand-feature">
+              <span className="login-brand-feature-icon">🔐</span>
+              <span>Role-based access control</span>
+            </div>
+            <div className="login-brand-feature">
+              <span className="login-brand-feature-icon">📋</span>
+              <span>Full audit trail</span>
+            </div>
+            <div className="login-brand-feature">
+              <span className="login-brand-feature-icon">✅</span>
+              <span>Approval governance workflows</span>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="login-bg" />
+
+      {/* Form panel */}
+      <div className="login-form-panel">
+        <div className="login-container">
+          <div className="login-card">
+            <div className="login-header">
+              <div className="login-logo login-logo-mobile">
+                <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-logo-img" />
+              </div>
+              <h1 className="login-title">Welcome back</h1>
+              <p className="login-subtitle">Sign in to access the control hub</p>
+            </div>
+
+            {errorMsg && <div className="login-error">{errorMsg}</div>}
+
+            <form onSubmit={handleLogin} className="login-form">
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="form-group">
+                <div className="form-label-row">
+                  <label className="form-label">Password</label>
+                  <Link to="/ui/forgot-password" className="login-forgot-link">
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="form-input-wrapper">
+                  <input
+                    className="form-input"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="form-input-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? "🙈" : "👁"}
+                  </button>
+                </div>
+              </div>
+
+              <button className="login-button" type="submit" disabled={loading}>
+                {loading ? (
+                  <span className="login-button-loading">
+                    <span className="login-spinner" />
+                    Signing in...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+          </div>
+
+          <div className="login-footer">
+            <a href="https://www.webforxtech.com/" target="_blank" rel="noopener noreferrer" className="login-footer-brand">
+              <img src={webForxMark} alt="Web Forx" className="login-footer-mark" />
+            </a>
+            <p className="login-footer-text">
+              &copy; {new Date().getFullYear()} Web Forx Global Inc. Web Forx™. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

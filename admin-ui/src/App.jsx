@@ -5,6 +5,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { FeaturesProvider } from "./contexts/FeaturesContext";
 
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Uploads from "./pages/Uploads";
@@ -35,8 +37,10 @@ export default function App() {
           {/* Root redirects to login */}
           <Route path="/" element={<Navigate to="/ui/login" replace />} />
 
-          {/* Public Route */}
+          {/* Public Routes */}
           <Route path="/ui/login" element={<Login />} />
+          <Route path="/ui/forgot-password" element={<ForgotPassword />} />
+          <Route path="/ui/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes inside Dark Cyber Layout */}
           <Route

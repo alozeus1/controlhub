@@ -67,3 +67,44 @@
   flex-direction: column;
   gap: var(--spacing-md);
 }
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+  .users-table-container,
+  .table-container,
+  .users-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .users-filters,
+  .filters-bar,
+  .filter-row {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .users-filters input,
+  .users-filters select,
+  .filters-bar input,
+  .filters-bar select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .modal-content,
+  .modal-body,
+  [class*="-modal"] {
+    max-width: min(560px, 95vw) !important;
+    width: 95vw;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons button,
+  .action-buttons a {
+    width: 100%;
+  }
+}

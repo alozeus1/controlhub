@@ -14,6 +14,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   localstack:
     image: localstack/localstack:3.0
     container_name: localstack
@@ -32,23 +43,14 @@ services:
       timeout: 5s
       retries: 10
 
-  ui:
-    build:
-      context: ./admin-ui
-    container_name: admin-ui
-    ports:
-      - "3001:3000"
-    environment:
-      REACT_APP_API_URL: "http://api:80"
-    stdin_open: true
-    tty: true
-
   api:
     build:
       context: .
       dockerfile: Dockerfile.api
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       localstack:
         condition: service_healthy
@@ -64,6 +66,9 @@ services:
       DB_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      RATELIMIT_STORAGE_URL: redis://redis:6379/0
       # S3/LocalStack configuration
       STORAGE_PROVIDER: localstack
       S3_BUCKET_NAME: controlhub-uploads
@@ -71,6 +76,32 @@ services:
       AWS_ENDPOINT_URL: http://localstack:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+      # CORS
+      CORS_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001,http://nginx:80"
+      # JWT
+      JWT_REFRESH_TOKEN_EXPIRES: "604800"
+
+  ui:
+    build:
+      context: ./admin-ui
+    container_name: admin-ui
+    ports:
+      - "3001:3000"
+    environment:
+      REACT_APP_API_URL: "http://localhost:9000"
+    stdin_open: true
+    tty: true
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: controlhub-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: always
 
 volumes:
   localstack_data:

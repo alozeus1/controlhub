@@ -1,15 +1,20 @@
+import { useState } from "react";
 import Sidebar from "./Sidebar";
 import TopNav from "./TopNav";
 import { Outlet, Link } from "react-router-dom";
 import "./MainLayout.css";
 
 export default function MainLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const currentYear = new Date().getFullYear();
 
   return (
     <div className="main-layout">
-      <Sidebar />
-      <TopNav />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      <TopNav onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
 
       <main className="main-content">
         <div className="main-content-inner">

@@ -44,26 +44,55 @@
   border-radius: var(--radius-lg);
   text-decoration: none;
   transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-primary);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
 .stat-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary-alpha);
+  box-shadow: 0 0 0 1px var(--color-primary-alpha), var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.stat-card:hover::before {
+  opacity: 1;
 }
 
 .stat-icon {
-  font-size: 2rem;
+  font-size: 2.25rem;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .stat-value {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  line-height: 1;
 }
 
 .stat-label {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  margin-top: 2px;
 }
 
 .dashboard-grid {
@@ -145,15 +174,19 @@
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   text-decoration: none;
   font-size: var(--font-size-sm);
   transition: all var(--transition-fast);
+  min-height: 44px;
 }
 
 .quick-action:hover {
   background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .quick-action-icon {

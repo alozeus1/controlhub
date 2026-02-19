@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -48,6 +48,40 @@ class User(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+class PasswordResetToken(db.Model):
+    """Tokens for password reset flow."""
+    __tablename__ = "password_reset_token"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)  # SHA-256 hex
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="reset_tokens")
+
+    @property
+    def is_valid(self):
+        return self.used_at is None and datetime.utcnow() < self.expires_at
+
+    @staticmethod
+    def generate(user_id, expires_minutes=60):
+        """Create a new reset token. Returns (token_plaintext, PasswordResetToken)."""
+        raw = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        obj = PasswordResetToken(
+            user_id=user_id,
+            token_hash=token_hash,
+            expires_at=datetime.utcnow() + timedelta(minutes=expires_minutes),
+        )
+        return raw, obj
+
+    @staticmethod
+    def hash_token(raw):
+        return hashlib.sha256(raw.encode()).hexdigest()
+
 
 class FileUpload(db.Model):
     __tablename__ = "file_upload"

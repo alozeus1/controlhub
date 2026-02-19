@@ -38,3 +38,45 @@
   padding: var(--spacing-2xl);
   color: var(--color-text-muted);
 }
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+  .audit-logs-table-container,
+  .table-container,
+  .audit-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .audit-filters,
+  .filters-bar,
+  .filter-row {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .audit-filters input,
+  .audit-filters select,
+  .filters-bar input,
+  .filters-bar select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .modal-content,
+  .modal-body,
+  [class*="-modal"] {
+    max-width: min(560px, 95vw) !important;
+    width: 95vw;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .page-header button,
+  .page-header a {
+    width: 100%;
+  }
+}
