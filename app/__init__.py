@@ -44,7 +44,10 @@ def create_app():
         if _redis is None:
             return False
         jti = jwt_payload.get("jti")
-        return _redis.get(f"blocklist:{jti}") is not None
+        try:
+            return _redis.get(f"blocklist:{jti}") is not None
+        except Exception:
+            return False
 
     # Expose redis on app for use in routes
     app._redis = _redis

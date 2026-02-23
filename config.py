@@ -11,7 +11,7 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
     # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
+    SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI", "sqlite:///controlhub.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT
@@ -19,6 +19,27 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ["access", "refresh"]
+
+    # Auth mode: local | cognito | hybrid
+    AUTH_MODE = os.environ.get("AUTH_MODE", "hybrid").lower()
+
+    # Local auth hardening
+    MAX_FAILED_LOGIN_ATTEMPTS = int(os.environ.get("MAX_FAILED_LOGIN_ATTEMPTS", 5))
+    ACCOUNT_LOCKOUT_MINUTES = int(os.environ.get("ACCOUNT_LOCKOUT_MINUTES", 15))
+    REQUIRE_EMAIL_VERIFICATION = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "false").lower() == "true"
+
+    # Cognito configuration
+    COGNITO_REGION = os.environ.get("COGNITO_REGION", "")
+    COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
+    COGNITO_APP_CLIENT_ID = os.environ.get("COGNITO_APP_CLIENT_ID", "")
+    COGNITO_DOMAIN = os.environ.get("COGNITO_DOMAIN", "")
+    COGNITO_JWKS_URL = os.environ.get("COGNITO_JWKS_URL", "")
+    COGNITO_ISSUER = os.environ.get("COGNITO_ISSUER", "")
+    COGNITO_JWKS_CACHE_SECONDS = int(os.environ.get("COGNITO_JWKS_CACHE_SECONDS", 3600))
+    COGNITO_AUTO_PROVISION = os.environ.get("COGNITO_AUTO_PROVISION", "false").lower() == "true"
+
+    # Frontend hosted-ui callback / SSO prep
+    COGNITO_REDIRECT_URI = os.environ.get("COGNITO_REDIRECT_URI", "http://localhost:3001/ui/auth/callback")
 
     # CORS
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001")
@@ -74,4 +95,11 @@ class Config:
 
 def get_config():
     Config.validate()
+    if Config.COGNITO_REGION and Config.COGNITO_USER_POOL_ID:
+        if not Config.COGNITO_ISSUER:
+            Config.COGNITO_ISSUER = (
+                f"https://cognito-idp.{Config.COGNITO_REGION}.amazonaws.com/{Config.COGNITO_USER_POOL_ID}"
+            )
+        if not Config.COGNITO_JWKS_URL:
+            Config.COGNITO_JWKS_URL = f"{Config.COGNITO_ISSUER}/.well-known/jwks.json"
     return Config()

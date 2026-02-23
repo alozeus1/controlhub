@@ -1,4 +1,7 @@
 import pytest
+import os
+os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+os.environ.setdefault("RATELIMIT_STORAGE_URL", "memory://")
 from app import create_app
 
 

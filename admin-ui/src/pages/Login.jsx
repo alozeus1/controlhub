@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../utils/api";
-import { setTokens } from "../utils/auth";
+import { buildCognitoAuthorizeUrl, getAuthMode, isCognitoEnabled, setTokens } from "../utils/auth";
 import controlhubLogo from "../assets/brand/controlhub-logo.svg";
 import webForxMark from "../assets/brand/web-forx-mark.png";
 import "./Login.css";
@@ -12,6 +12,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const authMode = getAuthMode();
+  const cognitoEnabled = isCognitoEnabled();
+  const cognitoUrl = buildCognitoAuthorizeUrl();
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -84,6 +87,7 @@ export default function Login() {
 
             {errorMsg && <div className="login-error">{errorMsg}</div>}
 
+            {(authMode === "local" || authMode === "hybrid") && (
             <form onSubmit={handleLogin} className="login-form">
               <div className="form-group">
                 <label className="form-label">Email</label>
@@ -137,6 +141,13 @@ export default function Login() {
                 )}
               </button>
             </form>
+            )}
+
+            {cognitoEnabled && cognitoUrl && (
+              <button className="login-button" type="button" onClick={() => (window.location.href = cognitoUrl)}>
+                Sign in with Google
+              </button>
+            )}
           </div>
 
           <div className="login-footer">

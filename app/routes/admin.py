@@ -15,6 +15,7 @@ from app.utils.audit import (
     log_user_enabled,
 )
 from app.utils.events import emit_user_created, emit_user_disabled, emit_user_role_changed
+from app.auth.password_policy import validate_password_strength
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -96,8 +97,9 @@ def create_user():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    ok, reason = validate_password_strength(password)
+    if not ok:
+        return jsonify({"error": reason}), 400
 
     if role not in ROLE_LEVELS:
         return jsonify({"error": f"Invalid role. Valid roles: {list(ROLE_LEVELS.keys())}"}), 400
@@ -112,7 +114,7 @@ def create_user():
         return jsonify({"error": "Email already exists"}), 400
 
     # Create user
-    new_user = User(email=email, role=role)
+    new_user = User(email=email, role=role, auth_provider="local", email_verified=True)
     new_user.set_password(password)
 
     db.session.add(new_user)
