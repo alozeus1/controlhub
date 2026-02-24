@@ -370,3 +370,27 @@ def test_logout_audit_uses_jwt_provider_claim(client, app):
         evt = AuditLog.query.filter_by(action="auth.logout", target_label="logout-claim@example.com").order_by(AuditLog.id.desc()).first()
         assert evt is not None
         assert evt.details.get("provider") == "cognito"
+
+
+def test_logout_blocklists_any_first_party_jwt_regardless_of_provider(client, app):
+    class FakeRedis:
+        def __init__(self):
+            self.calls = []
+
+        def setex(self, key, ttl, value):
+            self.calls.append((key, ttl, value))
+
+    fake_redis = FakeRedis()
+    app._redis = fake_redis
+
+    with app.app_context():
+        user = create_user(email="logout-blocklist@example.com", role="viewer")
+        token = create_access_token(identity=str(user.id), additional_claims={"provider": "cognito"})
+
+    res = client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    assert len(fake_redis.calls) == 1
+    key, ttl, value = fake_redis.calls[0]
+    assert key.startswith("blocklist:")
+    assert value == "1"
+    assert ttl > 0

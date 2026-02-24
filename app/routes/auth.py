@@ -182,12 +182,11 @@ def logout():
     provider = getattr(request, "auth_provider", "local")
     _redis = current_app._redis
 
-    if provider == "local":
-        claims = _safe_get_jwt_claims()
-        jti = claims.get("jti") if claims else None
-        if _redis and jti:
-            ttl = int(current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600)) + 60
-            _redis.setex(f"blocklist:{jti}", ttl, "1")
+    claims = _safe_get_jwt_claims()
+    jti = claims.get("jti") if claims else None
+    if _redis and jti:
+        ttl = int(current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600)) + 60
+        _redis.setex(f"blocklist:{jti}", ttl, "1")
 
     log_logout(user)
     log_action("auth.logout", actor=user, target_type="user", target_id=user.id, target_label=user.email, details={"provider": provider})
