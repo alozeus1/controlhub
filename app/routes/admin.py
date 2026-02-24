@@ -15,6 +15,7 @@ from app.utils.audit import (
     log_user_enabled,
 )
 from app.utils.events import emit_user_created, emit_user_disabled, emit_user_role_changed
+from app.auth.password_policy import validate_password_strength
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -96,8 +97,9 @@ def create_user():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    ok, reason = validate_password_strength(password)
+    if not ok:
+        return jsonify({"error": reason}), 400
 
     if role not in ROLE_LEVELS:
         return jsonify({"error": f"Invalid role. Valid roles: {list(ROLE_LEVELS.keys())}"}), 400
@@ -112,7 +114,7 @@ def create_user():
         return jsonify({"error": "Email already exists"}), 400
 
     # Create user
-    new_user = User(email=email, role=role)
+    new_user = User(email=email, role=role, auth_provider="local", email_verified=True)
     new_user.set_password(password)
 
     db.session.add(new_user)
@@ -296,6 +298,10 @@ def list_audit_logs():
     if action:
         query = query.filter(AuditLog.action == action)
 
+    auth_only = request.args.get("auth_only", "false").lower() == "true"
+    if auth_only:
+        query = query.filter(AuditLog.action.like("auth.%"))
+
     actor_id = request.args.get("actor_id", type=int)
     if actor_id:
         query = query.filter(AuditLog.actor_id == actor_id)
@@ -358,3 +364,54 @@ def list_audit_actions():
     """List all unique action types for filtering."""
     actions = db.session.query(AuditLog.action).distinct().all()
     return jsonify([a[0] for a in actions])
+
+
+@admin_bp.get("/users/auth-links")
+@require_role("viewer")
+def list_user_auth_links():
+    """List users with Cognito linking visibility for admin operations."""
+    query = User.query
+
+    linked = request.args.get("linked")
+    if linked == "true":
+        query = query.filter(User.cognito_sub.isnot(None))
+    elif linked == "false":
+        query = query.filter(User.cognito_sub.is_(None))
+
+    provider = request.args.get("auth_provider")
+    if provider:
+        query = query.filter(User.auth_provider == provider)
+
+    query = query.order_by(User.created_at.desc())
+    page = request.args.get("page", 1, type=int)
+    page_size = min(request.args.get("page_size", 20, type=int), 100)
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+    def _mask_sub(sub):
+        if not sub:
+            return None
+        if len(sub) <= 8:
+            return f"{sub[:2]}***"
+        return f"{sub[:4]}...{sub[-4:]}"
+
+    return jsonify({
+        "items": [
+            {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role,
+                "auth_provider": user.auth_provider,
+                "cognito_linked": bool(user.cognito_sub),
+                "cognito_sub": _mask_sub(user.cognito_sub),
+                "email_verified": user.email_verified,
+                "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
+            }
+            for user in pagination.items
+        ],
+        "total": pagination.total,
+        "page": pagination.page,
+        "page_size": pagination.per_page,
+        "pages": pagination.pages,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+    })

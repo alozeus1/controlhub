@@ -1,4 +1,7 @@
 import pytest
+import os
+os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+os.environ.setdefault("RATELIMIT_STORAGE_URL", "memory://")
 from app import create_app
 
 
@@ -18,7 +21,8 @@ def client(app):
 def test_healthz_returns_200(client):
     response = client.get("/healthz")
     assert response.status_code == 200
-    assert response.json == {"status": "ok"}
+    assert response.json["status"] == "ok"
+    assert "auth" in response.json
 
 
 def test_healthz_returns_request_id_header(client):

@@ -7,6 +7,7 @@ import { FeaturesProvider } from "./contexts/FeaturesContext";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Uploads from "./pages/Uploads";
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/ui/login" element={<Login />} />
           <Route path="/ui/forgot-password" element={<ForgotPassword />} />
           <Route path="/ui/reset-password" element={<ResetPassword />} />
+          <Route path="/ui/auth/callback" element={<AuthCallback />} />
 
           {/* Protected Routes inside Dark Cyber Layout */}
           <Route

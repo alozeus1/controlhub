@@ -16,9 +16,20 @@ ROLE_LEVELS = {
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), default="user", nullable=False)
+    auth_provider = db.Column(db.String(20), default="local", nullable=False, index=True)
+    cognito_sub = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
+    phone_number = db.Column(db.String(50), nullable=True)
+    phone_verified = db.Column(db.Boolean, default=False, nullable=False)
+    mfa_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    last_login_at = db.Column(db.DateTime, nullable=True)
+    failed_login_count = db.Column(db.Integer, default=0, nullable=False)
+    locked_until = db.Column(db.DateTime, nullable=True)
+    last_login_ip = db.Column(db.String(45), nullable=True)
+    last_login_user_agent = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -44,7 +55,13 @@ class User(db.Model):
             "id": self.id,
             "email": self.email,
             "role": self.role,
+            "auth_provider": self.auth_provider,
+            "email_verified": self.email_verified,
+            "phone_number": self.phone_number,
+            "phone_verified": self.phone_verified,
+            "mfa_enabled": self.mfa_enabled,
             "is_active": self.is_active,
+            "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

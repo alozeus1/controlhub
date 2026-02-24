@@ -23,7 +23,7 @@ export default function AuditLogs() {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, page_size: 20 });
-  const [filters, setFilters] = useState({ action: "", search: "" });
+  const [filters, setFilters] = useState({ action: "", search: "", authOnly: false });
   const toast = useToast();
 
   const fetchLogs = async (page = 1) => {
@@ -32,6 +32,7 @@ export default function AuditLogs() {
       const params = new URLSearchParams({ page, page_size: 20 });
       if (filters.action) params.append("action", filters.action);
       if (filters.search) params.append("search", filters.search);
+      if (filters.authOnly) params.append("auth_only", "true");
 
       const res = await api.get(`/admin/audit-logs?${params}`);
       setLogs(res.data.items);
@@ -88,6 +89,14 @@ export default function AuditLogs() {
                 <option key={a} value={a}>{a}</option>
               ))}
             </Select>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={filters.authOnly}
+                onChange={(e) => setFilters({ ...filters, authOnly: e.target.checked })}
+              />
+              Auth Events
+            </label>
             <input
               type="text"
               className="input"
