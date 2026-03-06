@@ -19,4 +19,7 @@ def get_features():
         "notifications": current_app.config.get("FEATURE_NOTIFICATIONS", False),
         "integrations": current_app.config.get("FEATURE_INTEGRATIONS", False),
         "assets": current_app.config.get("FEATURE_ASSETS", False),
+        "people": current_app.config.get("FEATURE_PEOPLE", False),
+        "internship_program": current_app.config.get("FEATURE_INTERNSHIP_PROGRAM", False),
+        "agent_service": current_app.config.get("FEATURE_AGENT_SERVICE", False),
     })

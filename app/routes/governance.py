@@ -68,7 +68,7 @@ def get_policy(policy_id):
 def create_policy():
     """Create a new policy."""
     actor = request.current_user
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
     # Validation
     name = data.get("name", "").strip()
@@ -120,7 +120,7 @@ def update_policy(policy_id):
     if not policy:
         return jsonify({"error": "Policy not found"}), 404
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     changes = {}
 
     for field in ["name", "description", "environment", "required_role", 
@@ -253,7 +253,7 @@ def approve_request(request_id):
     if approval.requester_id == actor.id:
         return jsonify({"error": "Cannot approve your own request"}), 400
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     # Record decision
     decision = ApprovalDecision(
@@ -332,7 +332,7 @@ def reject_request(request_id):
     if existing_decision:
         return jsonify({"error": "You have already made a decision on this request"}), 400
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     # Record decision
     decision = ApprovalDecision(
@@ -474,6 +474,156 @@ def execute_approved_action(approval: ApprovalRequest, executor):
             return {"success": True, "message": f"Cancelled job: {job.job_id}"}
         return {"success": False, "message": "Job not found or already completed/cancelled"}
 
+    elif action == "people.terminate":
+        from app.models import Person
+        person = Person.query.get(target_id)
+        if not person:
+            return {"success": False, "message": "Person not found"}
+        employment = person.active_employment
+        if not employment:
+            return {"success": False, "message": "No active employment to terminate"}
+
+        end_date_raw = request_data.get("end_date")
+        term_date = datetime.utcnow().date()
+        if end_date_raw:
+            try:
+                term_date = datetime.fromisoformat(end_date_raw).date()
+            except ValueError:
+                pass
+
+        employment.status = "terminated"
+        employment.end_date = term_date
+        if request_data.get("notes"):
+            employment.notes = request_data["notes"]
+        employment.updated_by_id = executor.id
+        person.is_active = False
+        log_action(
+            action="people.terminated",
+            actor=executor,
+            target_type="person",
+            target_id=person.id,
+            target_label=person.full_name,
+            details={"end_date": term_date.isoformat()},
+        )
+        return {"success": True, "message": f"Terminated: {person.full_name}"}
+
+    elif action == "people.convert_intern":
+        from app.models import Person, Employment
+        from datetime import date
+
+        person = Person.query.get(target_id)
+        if not person:
+            return {"success": False, "message": "Person not found"}
+        current = person.active_employment
+        if not current or current.employment_type != "intern":
+            return {"success": False, "message": "Person is not an active intern"}
+
+        current.status = "completed"
+        current.end_date = date.today()
+
+        start_date = date.today()
+        if request_data.get("start_date"):
+            try:
+                start_date = datetime.fromisoformat(request_data["start_date"]).date()
+            except ValueError:
+                pass
+
+        new_employment = Employment(
+            person_id=person.id,
+            employment_type="full_time",
+            intern_track=None,
+            status="active",
+            title=request_data.get("title") or current.title,
+            start_date=start_date,
+            manager_person_id=request_data.get("manager_person_id", current.manager_person_id),
+            mentor_person_id=None,
+            created_by_id=executor.id,
+        )
+        db.session.add(new_employment)
+        log_action(
+            action="people.converted_to_full_time",
+            actor=executor,
+            target_type="person",
+            target_id=person.id,
+            target_label=person.full_name,
+            details={"from_track": current.intern_track, "new_title": new_employment.title},
+        )
+        return {"success": True, "message": f"Converted intern to full-time: {person.full_name}"}
+
+    elif action == "people.export_bulk":
+        return {"success": True, "message": "Bulk export approved; requester may now download with approval_request_id"}
+
+    elif action == "people.issue_certificate":
+        from app.models import Person
+        from app.routes.internship import _issue_certificate
+
+        person = Person.query.get(target_id)
+        if not person:
+            return {"success": False, "message": "Person not found"}
+
+        certificate = _issue_certificate(
+            person=person,
+            actor=executor,
+            pdf_url=request_data.get("pdf_url"),
+        )
+        return {
+            "success": True,
+            "message": f"Issued certificate for {person.full_name}",
+            "certificate_id": certificate.id,
+            "certificate_no": certificate.certificate_no,
+        }
+
+    elif action == "secret.reveal":
+        return {"success": True, "message": "Secret reveal approved"}
+
+    elif action in {"agent.export", "agent.write_external"}:
+        if approval.target_type == "generated_artifact":
+            from app.models import GeneratedArtifact, ExternalDestination
+            from app.services.agent_service import publish_generated_artifact
+
+            artifact_id = request_data.get("artifact_id") or target_id
+            artifact = GeneratedArtifact.query.get(artifact_id)
+            if not artifact:
+                return {"success": False, "message": "Generated artifact not found"}
+
+            if action == "agent.export":
+                return {"success": True, "message": f"Approved artifact export {artifact_id}"}
+
+            destination_id = request_data.get("destination_id")
+            if not destination_id:
+                return {"success": False, "message": "Missing destination_id"}
+
+            destination = ExternalDestination.query.filter_by(id=destination_id, is_active=True).first()
+            if not destination:
+                return {"success": False, "message": "Destination not found or inactive"}
+
+            mode = request_data.get("mode", "overwrite")
+            result = publish_generated_artifact(artifact, destination, actor=executor, mode=mode)
+            return {
+                "success": True,
+                "message": f"Published artifact {artifact_id}",
+                "result": result,
+            }
+
+        from app.models import AgentRequest
+        from app.services.agent_service import process_agent_request
+
+        agent_request_id = request_data.get("agent_request_id") or target_id
+        if not agent_request_id:
+            return {"success": False, "message": "Missing agent_request_id"}
+
+        agent_request = AgentRequest.query.get(agent_request_id)
+        if not agent_request:
+            return {"success": False, "message": "Agent request not found"}
+
+        result = process_agent_request(agent_request, executor)
+        artifact = result.get("artifact") or {}
+        return {
+            "success": True,
+            "message": f"Executed agent request {agent_request_id}",
+            "artifact_id": artifact.get("id"),
+        }
+
     return {"success": False, "message": f"Unknown action: {action}"}
 
 
@@ -483,6 +633,13 @@ PROTECTED_ACTIONS = [
     "user.role_change", 
     "user.disable",
     "job.cancel",
+    "people.terminate",
+    "people.convert_intern",
+    "people.export_bulk",
+    "people.issue_certificate",
+    "secret.reveal",
+    "agent.export",
+    "agent.write_external",
 ]
 
 

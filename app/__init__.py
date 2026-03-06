@@ -44,7 +44,12 @@ def create_app():
         if _redis is None:
             return False
         jti = jwt_payload.get("jti")
-        return _redis.get(f"blocklist:{jti}") is not None
+        try:
+            return _redis.get(f"blocklist:{jti}") is not None
+        except Exception:
+            # If Redis is unavailable, fail open for auth checks rather than
+            # denying all requests.
+            return False
 
     # Expose redis on app for use in routes
     app._redis = _redis
@@ -68,6 +73,9 @@ def create_app():
     from app.routes.licenses import licenses_bp
     from app.routes.workflows import workflows_bp
     from app.routes.costs import costs_bp
+    from app.routes.people import people_bp
+    from app.routes.internship import internship_bp
+    from app.routes.agent_service import agent_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -88,6 +96,9 @@ def create_app():
     app.register_blueprint(licenses_bp, url_prefix="/admin")
     app.register_blueprint(workflows_bp, url_prefix="/admin")
     app.register_blueprint(costs_bp, url_prefix="/admin")
+    app.register_blueprint(people_bp, url_prefix="/admin")
+    app.register_blueprint(internship_bp, url_prefix="/admin")
+    app.register_blueprint(agent_bp, url_prefix="/admin")
     app.register_blueprint(ui_bp, url_prefix="/ui")
 
     return app

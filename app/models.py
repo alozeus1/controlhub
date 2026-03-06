@@ -8,7 +8,10 @@ from app.extensions import db
 # Role hierarchy levels (higher = more privileges)
 ROLE_LEVELS = {
     "superadmin": 100,
+    "hr_admin": 80,
     "admin": 50,
+    "people_manager": 40,
+    "mentor": 20,
     "viewer": 10,
     "user": 1,
 }
@@ -1138,3 +1141,526 @@ class BudgetRequest(db.Model):
                 "requested_by_id": self.requested_by_id,
                 "requester_email": self.requester.email if self.requester else None,
                 "created_at": self.created_at.isoformat() if self.created_at else None}
+
+
+# ─── PEOPLE ───────────────────────────────────────────────────────────────────
+
+EMPLOYMENT_TYPES = {"full_time", "contractor", "intern"}
+INTERN_TRACKS = {"software", "devops", "devsecops_cybersecurity", "ai_ml"}
+EMPLOYMENT_STATUSES = {"active", "on_leave", "terminated", "completed"}
+INTERNSHIP_PROGRAM_STATUSES = {"planned", "active", "completed", "archived"}
+INTERNSHIP_COHORT_STATUSES = {"active", "paused", "completed", "archived"}
+INTERNSHIP_COHORT_MEMBER_ROLES = {"intern", "manager", "mentor", "observer"}
+
+
+class Person(db.Model):
+    __tablename__ = "person"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(30), nullable=True)
+    team = db.Column(db.String(100), nullable=True)
+    department = db.Column(db.String(100), nullable=True)
+    cohort = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    linked_user = db.relationship("User", foreign_keys=[user_id], backref="person_profile")
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_people")
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @property
+    def active_employment(self):
+        for employment in sorted(self.employments, key=lambda e: e.created_at or datetime.min, reverse=True):
+            if employment.status in ("active", "on_leave"):
+                return employment
+        return None
+
+    def to_dict(self):
+        employment = self.active_employment
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "full_name": self.full_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "phone": self.phone,
+            "team": self.team,
+            "department": self.department,
+            "cohort": self.cohort,
+            "is_active": self.is_active,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "active_employment": employment.to_dict() if employment else None,
+        }
+
+
+class Employment(db.Model):
+    __tablename__ = "employment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    employment_type = db.Column(db.String(30), nullable=False)  # full_time|contractor|intern
+    intern_track = db.Column(db.String(50), nullable=True)  # software|devops|devsecops_cybersecurity|ai_ml
+    status = db.Column(db.String(20), default="active", nullable=False)
+    title = db.Column(db.String(120), nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    manager_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
+    mentor_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    person = db.relationship("Person", foreign_keys=[person_id], backref="employments")
+    manager = db.relationship("Person", foreign_keys=[manager_person_id], backref="managed_employments")
+    mentor = db.relationship("Person", foreign_keys=[mentor_person_id], backref="mentored_employments")
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_employments")
+    updater = db.relationship("User", foreign_keys=[updated_by_id], backref="updated_employments")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "employment_type": self.employment_type,
+            "intern_track": self.intern_track,
+            "status": self.status,
+            "title": self.title,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "manager_person_id": self.manager_person_id,
+            "manager_name": self.manager.full_name if self.manager else None,
+            "mentor_person_id": self.mentor_person_id,
+            "mentor_name": self.mentor.full_name if self.mentor else None,
+            "notes": self.notes,
+            "created_by_id": self.created_by_id,
+            "updated_by_id": self.updated_by_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PerformanceCheckin(db.Model):
+    __tablename__ = "performance_checkin"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    summary = db.Column(db.String(255), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    person = db.relationship("Person", backref="checkins")
+    author = db.relationship("User", backref="authored_checkins")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "author_id": self.author_id,
+            "author_email": self.author.email if self.author else None,
+            "summary": self.summary,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AccessAssignment(db.Model):
+    __tablename__ = "access_assignment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    system_name = db.Column(db.String(100), nullable=False)
+    access_level = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), default="active", nullable=False)
+    assigned_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+
+    person = db.relationship("Person", backref="access_assignments")
+    assigner = db.relationship("User", backref="assigned_access")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "system_name": self.system_name,
+            "access_level": self.access_level,
+            "status": self.status,
+            "assigned_by_id": self.assigned_by_id,
+            "assigned_by_email": self.assigner.email if self.assigner else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
+        }
+
+
+class InternshipProgram(db.Model):
+    __tablename__ = "internship_program"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="planned")
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_internship_programs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "status": self.status,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class InternshipCohort(db.Model):
+    __tablename__ = "internship_cohort"
+    __table_args__ = (
+        db.UniqueConstraint("program_id", "name", name="uq_internship_cohort_program_name"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    program_id = db.Column(db.Integer, db.ForeignKey("internship_program.id"), nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    track = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="active")
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    program = db.relationship("InternshipProgram", backref="cohorts")
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_internship_cohorts")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "program_id": self.program_id,
+            "program_name": self.program.name if self.program else None,
+            "name": self.name,
+            "track": self.track,
+            "status": self.status,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class InternshipCohortMember(db.Model):
+    __tablename__ = "internship_cohort_member"
+    __table_args__ = (
+        db.UniqueConstraint("cohort_id", "person_id", "role", name="uq_internship_cohort_member_unique"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cohort_id = db.Column(db.Integer, db.ForeignKey("internship_cohort.id"), nullable=False)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default="intern")
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    cohort = db.relationship("InternshipCohort", backref="memberships")
+    person = db.relationship("Person", backref="cohort_memberships")
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_internship_cohort_memberships")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "cohort_id": self.cohort_id,
+            "cohort_name": self.cohort.name if self.cohort else None,
+            "person_id": self.person_id,
+            "person_name": self.person.full_name if self.person else None,
+            "person_email": self.person.email if self.person else None,
+            "role": self.role,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class OnboardingTemplateItem(db.Model):
+    __tablename__ = "onboarding_template_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_onboarding_template_items")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "is_active": self.is_active,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PersonOnboardingItem(db.Model):
+    __tablename__ = "person_onboarding_item"
+    __table_args__ = (
+        db.UniqueConstraint("person_id", "template_item_id", name="uq_person_onboarding_item_unique"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    template_item_id = db.Column(db.Integer, db.ForeignKey("onboarding_template_item.id"), nullable=False)
+    checked = db.Column(db.Boolean, default=False, nullable=False)
+    checked_at = db.Column(db.DateTime, nullable=True)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    person = db.relationship("Person", backref="onboarding_items")
+    template_item = db.relationship("OnboardingTemplateItem", backref="person_items")
+    updater = db.relationship("User", foreign_keys=[updated_by_id], backref="updated_person_onboarding_items")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "template_item_id": self.template_item_id,
+            "title": self.template_item.title if self.template_item else None,
+            "description": self.template_item.description if self.template_item else None,
+            "checked": self.checked,
+            "checked_at": self.checked_at.isoformat() if self.checked_at else None,
+            "updated_by_id": self.updated_by_id,
+            "updated_by_email": self.updater.email if self.updater else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class InternshipCompletionChecklist(db.Model):
+    __tablename__ = "internship_completion_checklist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False, unique=True)
+    project_submitted = db.Column(db.Boolean, default=False, nullable=False)
+    evaluation_done = db.Column(db.Boolean, default=False, nullable=False)
+    admin_validated = db.Column(db.Boolean, default=False, nullable=False)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    person = db.relationship("Person", backref="completion_checklist", uselist=False)
+    updater = db.relationship("User", foreign_keys=[updated_by_id], backref="updated_completion_checklists")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "project_submitted": self.project_submitted,
+            "evaluation_done": self.evaluation_done,
+            "admin_validated": self.admin_validated,
+            "updated_by_id": self.updated_by_id,
+            "updated_by_email": self.updater.email if self.updater else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class InternshipCertificate(db.Model):
+    __tablename__ = "internship_certificate"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    certificate_no = db.Column(db.String(80), nullable=False, unique=True)
+    issued_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    pdf_url = db.Column(db.String(500), nullable=True)
+    issued_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    person = db.relationship("Person", backref="certificates")
+    issuer = db.relationship("User", foreign_keys=[issued_by_id], backref="issued_certificates")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "person_name": self.person.full_name if self.person else None,
+            "certificate_no": self.certificate_no,
+            "issued_at": self.issued_at.isoformat() if self.issued_at else None,
+            "pdf_url": self.pdf_url,
+            "issued_by_id": self.issued_by_id,
+            "issued_by_email": self.issuer.email if self.issuer else None,
+        }
+
+
+class AgentRequest(db.Model):
+    __tablename__ = "agent_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+    requester_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    org_id = db.Column(db.Integer, nullable=True)
+    module_scope = db.Column(db.String(50), nullable=False)
+    filters_json = db.Column(db.JSON, nullable=True)
+    output_type = db.Column(db.String(20), nullable=False)  # csv|xlsx|docx|md
+    template_id = db.Column(db.String(100), nullable=False)
+    destination_type = db.Column(db.String(30), nullable=False, default="download")
+    destination_ref = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending|pending_approval|processing|completed|failed
+    approval_required = db.Column(db.Boolean, nullable=False, default=False)
+    approved_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    requester = db.relationship("User", foreign_keys=[requester_user_id], backref="agent_requests")
+    approver = db.relationship("User", foreign_keys=[approved_by], backref="approved_agent_requests")
+
+    def to_dict(self):
+        latest_artifact = None
+        if self.artifacts:
+            latest_artifact = sorted(self.artifacts, key=lambda x: x.id, reverse=True)[0]
+        return {
+            "id": self.id,
+            "requester_user_id": self.requester_user_id,
+            "requester_email": self.requester.email if self.requester else None,
+            "org_id": self.org_id,
+            "module_scope": self.module_scope,
+            "filters_json": self.filters_json,
+            "output_type": self.output_type,
+            "template_id": self.template_id,
+            "destination_type": self.destination_type,
+            "destination_ref": self.destination_ref,
+            "status": self.status,
+            "approval_required": self.approval_required,
+            "approved_by": self.approved_by,
+            "approved_by_email": self.approver.email if self.approver else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "latest_artifact": latest_artifact.to_dict() if latest_artifact else None,
+        }
+
+
+class GeneratedArtifact(db.Model):
+    __tablename__ = "generated_artifact"
+
+    id = db.Column(db.Integer, primary_key=True)
+    agent_request_id = db.Column(db.Integer, db.ForeignKey("agent_request.id"), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    mime_type = db.Column(db.String(120), nullable=False)
+    row_count = db.Column(db.Integer, nullable=True)
+    sha256 = db.Column(db.String(64), nullable=False)
+    s3_bucket = db.Column(db.String(120), nullable=False)
+    s3_key = db.Column(db.String(500), nullable=False)
+    classification = db.Column(db.String(50), nullable=False, default="internal")
+    pii_flag = db.Column(db.Boolean, nullable=False, default=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    request = db.relationship("AgentRequest", backref="artifacts")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "agent_request_id": self.agent_request_id,
+            "filename": self.filename,
+            "mime_type": self.mime_type,
+            "row_count": self.row_count,
+            "sha256": self.sha256,
+            "s3_bucket": self.s3_bucket,
+            "s3_key": self.s3_key,
+            "classification": self.classification,
+            "pii_flag": self.pii_flag,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_expired": bool(self.expires_at and datetime.utcnow() > self.expires_at),
+        }
+
+
+class ExportTemplate(db.Model):
+    __tablename__ = "export_template"
+
+    id = db.Column(db.String(100), primary_key=True)  # stable key (e.g., employee_directory)
+    name = db.Column(db.String(150), nullable=False)
+    module_scope = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    allowed_fields = db.Column(db.JSON, nullable=False)
+    masking_rules = db.Column(db.JSON, nullable=True)
+    classification = db.Column(db.String(50), nullable=False, default="internal")
+    pii_flag = db.Column(db.Boolean, nullable=False, default=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_export_templates")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "module_scope": self.module_scope,
+            "description": self.description,
+            "allowed_fields": self.allowed_fields or [],
+            "masking_rules": self.masking_rules or {},
+            "classification": self.classification,
+            "pii_flag": self.pii_flag,
+            "is_active": self.is_active,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ExternalDestination(db.Model):
+    __tablename__ = "external_destination"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    destination_type = db.Column(db.String(50), nullable=False)  # google_drive_folder|google_sheet_range
+    config = db.Column(db.JSON, nullable=False)
+    allowed_template_ids = db.Column(db.JSON, nullable=False, default=list)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_external_destinations")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "destination_type": self.destination_type,
+            "config": self.config,
+            "allowed_template_ids": self.allowed_template_ids or [],
+            "is_active": self.is_active,
+            "created_by_id": self.created_by_id,
+            "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
