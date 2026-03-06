@@ -23,6 +23,33 @@ jobs:
       - name: Run flake8
         run: flake8 app/ tests/ --max-line-length=120 --ignore=E501,W503,E302,F401,E722,W292
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: admin-ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend lint
+        run: npm run lint
+
+      - name: Run frontend tests
+        run: CI=true npm test -- --watchAll=false
+
+      - name: Build frontend
+        run: npm run build
+
   test:
     runs-on: ubuntu-latest
     steps:

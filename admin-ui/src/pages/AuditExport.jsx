@@ -123,7 +123,7 @@ export default function AuditExport() {
       }
 
       // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", filename);
@@ -166,7 +166,7 @@ export default function AuditExport() {
         if (match) filename = match[1];
       }
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", filename);

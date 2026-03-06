@@ -9,25 +9,50 @@ class ApiError extends Error {
   }
 }
 
-async function request(method, path, body = null, retry = true) {
+async function parseResponseBody(res, responseType) {
+  if (responseType === "blob") {
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    if (contentType.includes("application/json")) {
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    }
+    return res.blob();
+  }
+  if (responseType === "text") {
+    return res.text();
+  }
+
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ApiError("Invalid JSON response", { status: res.status, raw: text });
+  }
+}
+
+async function request(method, path, body = null, retry = true, requestOptions = {}) {
   // Prefer sessionStorage token; fall back to legacy localStorage
   const token = getToken() || localStorage.getItem("token");
+  const responseType = requestOptions.responseType || "json";
+  const extraHeaders = requestOptions.headers || {};
 
-  const options = {
+  const fetchOptions = {
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(responseType !== "blob" ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...extraHeaders,
     },
   };
 
   if (body) {
-    options.body = JSON.stringify(body);
+    fetchOptions.body = responseType === "blob" ? body : JSON.stringify(body);
   }
 
   let res;
   try {
-    res = await fetch(`${API_BASE}${path}`, options);
+    res = await fetch(`${API_BASE}${path}`, fetchOptions);
   } catch (err) {
     console.error("API unreachable:", err);
     throw new ApiError("Unable to connect to API.", { data: { error: "Network error" } });
@@ -37,20 +62,21 @@ async function request(method, path, body = null, retry = true) {
   if (res.status === 401 && retry) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      return request(method, path, body, false);
+      return request(method, path, body, false, requestOptions);
     }
     clearTokens();
     window.location.href = "/ui/login";
     return { data: null };
   }
 
-  const data = await res.json();
+  const data = await parseResponseBody(res, responseType);
+  const headers = Object.fromEntries(res.headers.entries());
 
   if (!res.ok) {
-    throw new ApiError(data.error || "Request failed", { data, status: res.status });
+    throw new ApiError(data?.error || "Request failed", { data, status: res.status, headers });
   }
 
-  return { data };
+  return { data, status: res.status, headers };
 }
 
 async function uploadFile(path, file, onProgress = null) {
@@ -108,11 +134,11 @@ async function uploadFile(path, file, onProgress = null) {
 }
 
 const api = {
-  get: (path) => request("GET", path),
-  post: (path, body) => request("POST", path, body),
-  put: (path, body) => request("PUT", path, body),
-  patch: (path, body) => request("PATCH", path, body),
-  delete: (path) => request("DELETE", path),
+  get: (path, options = {}) => request("GET", path, null, true, options),
+  post: (path, body, options = {}) => request("POST", path, body, true, options),
+  put: (path, body, options = {}) => request("PUT", path, body, true, options),
+  patch: (path, body, options = {}) => request("PATCH", path, body, true, options),
+  delete: (path, options = {}) => request("DELETE", path, null, true, options),
   upload: (path, file, onProgress) => uploadFile(path, file, onProgress),
 };
 

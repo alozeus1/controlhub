@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "../utils/api";
-import Card, { CardHeader, CardBody } from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import Input, { Select } from "../components/ui/Input";
+import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { PageLoader } from "../components/ui/Spinner";
@@ -36,7 +35,7 @@ export default function EnvConfig() {
     try {
       setLoading(true);
       const res = await api.get("/admin/env-projects");
-      setProjects(res.data.items || res.data || []);
+      setProjects(res.data.items || []);
     } catch {
       toast.error("Failed to load projects");
     } finally {
@@ -55,7 +54,7 @@ export default function EnvConfig() {
       const res = await api.get(
         `/admin/env-projects/${selectedProject.id}/configs?environment=${activeEnv}`
       );
-      setConfigs(res.data.items || res.data || []);
+      setConfigs(res.data.items || []);
     } catch {
       toast.error("Failed to load configs");
     } finally {
@@ -141,9 +140,10 @@ export default function EnvConfig() {
   const handleExport = async () => {
     try {
       const res = await api.get(
-        `/admin/env-projects/${selectedProject.id}/export?environment=${activeEnv}`
+        `/admin/env-projects/${selectedProject.id}/export?environment=${activeEnv}`,
+        { responseType: "text" }
       );
-      const blob = new Blob([res.data], { type: "text/plain" });
+      const blob = new Blob([res.data ?? ""], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

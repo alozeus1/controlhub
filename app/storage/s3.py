@@ -36,7 +36,7 @@ def get_storage_config() -> dict:
             "ALLOWED_CONTENT_TYPES",
             "image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/xml"
         ).split(",") if os.environ.get("ALLOWED_CONTENT_TYPES") else [],
-        "presigned_url_expiry": int(os.environ.get("PRESIGNED_URL_EXPIRY", 900)),  # 15 min
+        "presigned_url_expiry": int(os.environ.get("PRESIGNED_URL_EXPIRY", 300)),  # 5 min
     }
 
 
