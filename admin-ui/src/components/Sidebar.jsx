@@ -32,6 +32,10 @@ const getNavItems = (features) => {
       { to: "/ui/workflows", icon: "🔄", label: "Workflows" },
       { to: "/ui/licenses", icon: "📄", label: "Licenses" },
       { to: "/ui/costs", icon: "💰", label: "Cost Tracker" },
+      ...(features.people ? [{ to: "/ui/people", icon: "🧑‍💼", label: "People" }] : []),
+      ...(features.internship_program ? [{ to: "/ui/internship", icon: "🎓", label: "Internship Program" }] : []),
+      ...(features.agent_service ? [{ to: "/ui/exports-reports", icon: "🧾", label: "Exports & Reports" }] : []),
+      ...(features.agent_service ? [{ to: "/ui/agent-requests", icon: "🤖", label: "Agent Requests" }] : []),
     ]},
   ];
 

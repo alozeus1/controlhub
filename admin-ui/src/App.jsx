@@ -37,6 +37,11 @@ import Licenses from "./pages/Licenses";
 import Workflows from "./pages/Workflows";
 import WorkflowRunDetail from "./pages/WorkflowRunDetail";
 import Costs from "./pages/Costs";
+import People from "./pages/People";
+import PersonDetail from "./pages/PersonDetail";
+import InternshipProgram from "./pages/InternshipProgram";
+import ExportsReports from "./pages/ExportsReports";
+import AgentRequests from "./pages/AgentRequests";
 import Settings from "./pages/Settings";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
@@ -95,6 +100,11 @@ export default function App() {
             <Route path="/ui/workflows" element={<Workflows />} />
             <Route path="/ui/workflows/runs/:id" element={<WorkflowRunDetail />} />
             <Route path="/ui/costs" element={<Costs />} />
+            <Route path="/ui/people" element={<People />} />
+            <Route path="/ui/people/:id" element={<PersonDetail />} />
+            <Route path="/ui/internship" element={<InternshipProgram />} />
+            <Route path="/ui/exports-reports" element={<ExportsReports />} />
+            <Route path="/ui/agent-requests" element={<AgentRequests />} />
             <Route path="/ui/settings" element={<Settings />} />
             <Route path="/ui/privacy" element={<Privacy />} />
             <Route path="/ui/support" element={<Support />} />

@@ -1,0 +1,105 @@
+.internship-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.internship-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.internship-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.internship-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.internship-table th,
+.internship-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color, #2b2f38);
+  text-align: left;
+  vertical-align: top;
+}
+
+.internship-table tbody tr {
+  cursor: pointer;
+}
+
+.internship-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.internship-table tbody tr.selected-row {
+  background: rgba(79, 179, 255, 0.12);
+}
+
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cell-stack span {
+  font-size: 0.82rem;
+  color: var(--text-muted, #8b92a7);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #2b2f38);
+  border-radius: 0.5rem;
+}
+
+.template-item p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #8b92a7);
+}
+
+.template-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-pill {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+}
+
+.status-pill.active {
+  background: rgba(72, 196, 121, 0.12);
+  color: #6dd99d;
+}
+
+.status-pill.inactive {
+  background: rgba(245, 194, 107, 0.15);
+  color: #f5c26b;
+}
+
+@media (max-width: 1100px) {
+  .internship-grid {
+    grid-template-columns: 1fr;
+  }
+}

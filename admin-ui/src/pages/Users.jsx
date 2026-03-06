@@ -134,7 +134,10 @@ export default function Users() {
             >
               <option value="">All Roles</option>
               <option value="superadmin">Superadmin</option>
+              <option value="hr_admin">HR Admin</option>
               <option value="admin">Admin</option>
+              <option value="people_manager">People Manager</option>
+              <option value="mentor">Mentor</option>
               <option value="viewer">Viewer</option>
               <option value="user">User</option>
             </Select>
@@ -266,6 +269,9 @@ export default function Users() {
           >
             <option value="user">User</option>
             <option value="viewer">Viewer</option>
+            {currentUser.role === "superadmin" && <option value="mentor">Mentor</option>}
+            {currentUser.role === "superadmin" && <option value="people_manager">People Manager</option>}
+            {currentUser.role === "superadmin" && <option value="hr_admin">HR Admin</option>}
             {currentUser.role === "superadmin" && <option value="admin">Admin</option>}
           </Select>
         </div>
@@ -295,6 +301,9 @@ export default function Users() {
           >
             <option value="user">User</option>
             <option value="viewer">Viewer</option>
+            {currentUser.role === "superadmin" && <option value="mentor">Mentor</option>}
+            {currentUser.role === "superadmin" && <option value="people_manager">People Manager</option>}
+            {currentUser.role === "superadmin" && <option value="hr_admin">HR Admin</option>}
             {currentUser.role === "superadmin" && <option value="admin">Admin</option>}
           </Select>
         </div>

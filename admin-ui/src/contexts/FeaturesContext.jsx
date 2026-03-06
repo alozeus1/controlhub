@@ -7,6 +7,9 @@ const DEFAULT_FEATURES = {
   notifications: false,
   integrations: false,
   assets: false,
+  people: false,
+  internship_program: false,
+  agent_service: false,
 };
 
 export function FeaturesProvider({ children }) {
