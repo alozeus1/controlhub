@@ -9,11 +9,8 @@
 This project is a full-stack enterprise admin portal built with:
 
 Flask (Python) — backend API
-
 PostgreSQL — database
-
-React + Vite — admin UI
-
+React (Create React App) — admin UI
 Docker Compose — containerized multi-service environment
 
 This README explains:
@@ -65,19 +62,11 @@ Stores users, jobs, uploaded file metadata
 Managed via Alembic migrations
 
 📁 2. Folder Structure
-flask-advanced-app/
-├── api/                # Flask Backend
-│   ├── app.py
-│   ├── models/
-│   ├── routes/
-│   ├── migrations/
-│   └── Dockerfile
-│
-├── ui/                 # React Admin UI
-│   ├── src/
-│   ├── public/
-│   └── Dockerfile
-│
+controlhub/
+├── app/                # Flask backend package
+├── migrations/         # Alembic migrations
+├── admin-ui/           # React admin UI
+├── tests/              # Backend tests
 ├── docker-compose.yml  # Multi-service infrastructure
 └── README.md
 🚀 3. How to Run the Project Locally
@@ -94,7 +83,7 @@ Git
 
 ✅ Step 1 — Clone the repo
 git clone <repo-url>
-cd flask-advanced-app
+cd controlhub
 ✅ Step 2 — Build the entire stack
 
 Use no-cache on first build:
@@ -231,4 +220,44 @@ API on port 9000
 
 Postgres on port 5432
 
-This README helps any new developer spin up the entire system in minutes.
+## Feature Flags
+
+Feature flags are served by `GET /features` and consumed by the UI.
+
+- `FEATURE_SERVICE_ACCOUNTS`
+- `FEATURE_NOTIFICATIONS`
+- `FEATURE_INTEGRATIONS`
+- `FEATURE_ASSETS`
+- `FEATURE_PEOPLE`
+- `FEATURE_INTERNSHIP_PROGRAM`
+- `FEATURE_AGENT_SERVICE`
+
+## Agent Service
+
+ControlHub includes a governed in-app Agent Service for exports/reports:
+
+- Request generation of `CSV`, `XLSX`, `DOCX`, and `Markdown` artifacts
+- Policy-gated approvals for PII/large exports/external writes
+- Role-permission checks (`agent:run`, `agent:export`, `agent:write_external`)
+- Artifact storage metadata (`s3_bucket`, `s3_key`, `sha256`, `classification`, `pii_flag`)
+- Presigned download link API (`5-30` minute TTL) with audit logs
+- Allow-listed Google Workspace destinations (`google_drive_folder`, `google_sheet_range`)
+
+Related env vars:
+
+- `AGENT_EXPORT_APPROVAL_ROW_THRESHOLD`
+- `AGENT_ARTIFACT_STORAGE` (`local` or `s3`)
+- `AGENT_ARTIFACTS_DIR`
+- `AGENT_ARTIFACT_URL_EXPIRY_SECONDS`
+- `ARTIFACTS_BUCKET_PREFIX`
+- `ARTIFACTS_KMS_KEY_ARN`
+- `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_FILE`
+- `GOOGLE_IMPERSONATED_USER`
+
+## Security Notes
+
+- Secrets at rest are encrypted using Fernet keys from `SECRET_ENCRYPTION_KEYS`.
+- Set `PRESIGNED_URL_EXPIRY` to a short value (default: `300` seconds).
+- In production, `SECRET_KEY`, `JWT_SECRET_KEY`, `SQLALCHEMY_DATABASE_URI`, and `SECRET_ENCRYPTION_KEYS` must be configured.
+
+This README helps new developers spin up the system and understand the module layout quickly.

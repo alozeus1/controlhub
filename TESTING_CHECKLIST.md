@@ -17,24 +17,12 @@ docker compose ps  # All should show "Up" and db should be "healthy"
 
 ## 0. Create Test Admin User
 
-### Option A: Via API + SQL
-```bash
-# Register user
-curl -X POST http://localhost:9000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"Admin123!"}'
-
-# Promote to admin
-docker compose exec db psql -U postgres -d flaskdb \
-  -c "UPDATE \"user\" SET role='admin' WHERE email='admin@example.com';"
-```
-
-### Option B: Via Seed Script
+### Option A: Via Seed Script
 ```bash
 docker compose exec api python scripts/seed_admin.py
 ```
 
-### Option C: Custom Credentials
+### Option B: Custom Credentials
 ```bash
 ADMIN_EMAIL=myemail@example.com ADMIN_PASSWORD=MySecurePass123 \
   docker compose exec api python scripts/seed_admin.py
@@ -131,43 +119,33 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:9000/
 ### 3.2 Auth Flow
 
 ```bash
-# Register new user
-curl -s -X POST http://localhost:9000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}'
-# Expected: {"message":"User created"} or {"error":"Email already exists"}
-
 # Login
 curl -s -X POST http://localhost:9000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}'
+  -d '{"email":"admin@example.com","password":"Admin123!"}'
 # Expected: {"access_token":"eyJ..."}
 
 # Get current user (protected)
 TOKEN=$(curl -s -X POST http://localhost:9000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}' \
+  -d '{"email":"admin@example.com","password":"Admin123!"}' \
   | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 curl -s http://localhost:9000/auth/me -H "Authorization: Bearer $TOKEN"
-# Expected: {"email":"test@example.com","id":1}
+# Expected: {"email":"admin@example.com","id":...}
 ```
 
 ### 3.3 Admin Endpoints (require admin role)
 
 ```bash
-# Promote user to admin first
-docker compose exec db psql -U postgres -d flaskdb \
-  -c "UPDATE \"user\" SET role='admin' WHERE email='test@example.com';"
-
-# Get fresh token and test admin endpoints
+# Get token and test admin endpoints
 TOKEN=$(curl -s -X POST http://localhost:9000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}' \
+  -d '{"email":"admin@example.com","password":"Admin123!"}' \
   | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 curl -s http://localhost:9000/admin/users -H "Authorization: Bearer $TOKEN"
-# Expected: [{"id":1,"email":"test@example.com","role":"admin",...}]
+# Expected: [{"id":...,"email":"admin@example.com","role":"admin",...}]
 
 curl -s http://localhost:9000/admin/uploads -H "Authorization: Bearer $TOKEN"
 # Expected: [] (empty array if no uploads)
@@ -199,7 +177,7 @@ Open http://localhost:3001 in browser:
 
 ### 4.3 Login Flow
 1. Go to http://localhost:3001/ui/login
-2. Enter: `test@example.com` / `testpass123`
+2. Enter: `admin@example.com` / `Admin123!`
 3. Click Login
 4. Should redirect to Dashboard
 
@@ -460,9 +438,11 @@ curl -s http://localhost:9000/admin/assets/stats \
 |--------|----------|-------------|
 | GET | `/healthz` | Health check |
 | GET | `/features` | Feature flags |
-| POST | `/auth/register` | Register user |
 | POST | `/auth/login` | Login |
+| POST | `/auth/refresh` | Refresh token |
 | GET | `/auth/me` | Current user |
+| POST | `/auth/forgot-password` | Request password reset |
+| POST | `/auth/reset-password` | Reset password |
 
 ### Admin Endpoints (require admin role)
 | Method | Endpoint | Description |

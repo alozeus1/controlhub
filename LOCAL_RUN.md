@@ -117,6 +117,31 @@ TOKEN=$(curl -s -X POST http://localhost:9000/auth/login \
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9000/admin/users
 ```
 
+## People Module + Governed Agent Exports
+
+Enable People module and governed exports in `.env`:
+
+```bash
+FEATURE_PEOPLE=true
+FEATURE_INTERNSHIP_PROGRAM=true
+FEATURE_AGENT_SERVICE=true
+SECRET_ENCRYPTION_KEYS=<comma-separated-fernet-keys>
+PRESIGNED_URL_EXPIRY=300
+AGENT_EXPORT_APPROVAL_ROW_THRESHOLD=200
+AGENT_ARTIFACT_STORAGE=local
+AGENT_ARTIFACT_URL_EXPIRY_SECONDS=300
+ARTIFACTS_BUCKET_PREFIX=controlhub-artifacts
+ARTIFACTS_KMS_KEY_ARN=<kms-key-arn-if-using-s3>
+GOOGLE_SERVICE_ACCOUNT_FILE=/absolute/path/to/google-service-account.json
+GOOGLE_IMPERSONATED_USER=controlhub-bot@yourdomain.com
+```
+
+Generate a Fernet key:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
 ## Troubleshooting
 
 ### Container won't start

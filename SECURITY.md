@@ -15,10 +15,12 @@ The following environment variables are **required** and the app will refuse to 
 | `SECRET_KEY` | Flask session signing key |
 | `JWT_SECRET_KEY` | JWT token signing key |
 | `SQLALCHEMY_DATABASE_URI` | Database connection string |
+| `SECRET_ENCRYPTION_KEYS` | Fernet key ring for secrets-at-rest encryption |
 
 Generate secure keys with:
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 ### Development Mode (`ENVIRONMENT=development`)
@@ -45,7 +47,7 @@ Insecure default values are used for convenience. **Never use development mode i
 
 ### Recommended practices
 1. Use `.env.example` as a template (no real secrets)
-2. Store production secrets in a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
+2. Store production secrets and encryption keys in a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
 3. Rotate secrets regularly
 4. Use different secrets for each environment
 

@@ -178,6 +178,8 @@ Enterprise modules can be enabled/disabled via environment variables:
 | `FEATURE_NOTIFICATIONS` | `true` | Notification channels & alert rules |
 | `FEATURE_INTEGRATIONS` | `true` | Webhooks & audit export |
 | `FEATURE_ASSETS` | `true` | IT asset inventory |
+| `FEATURE_PEOPLE` | `true` | People directory (employees/interns) |
+| `FEATURE_AGENT_SERVICE` | `true` | Governed in-app agent exports/reports |
 
 Example to disable a feature:
 ```bash
@@ -212,15 +214,7 @@ docker compose up --build -d
 
 ### 2. Create Admin User
 ```bash
-# Option A: Via API
-curl -X POST http://localhost:9000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"Admin123!"}'
-
-docker compose exec db psql -U postgres -d flaskdb \
-  -c "UPDATE \"user\" SET role='admin' WHERE email='admin@example.com';"
-
-# Option B: Via seed script
+# Via seed script
 docker compose exec api python scripts/seed_admin.py
 ```
 
