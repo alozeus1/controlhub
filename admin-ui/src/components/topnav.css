@@ -4,7 +4,8 @@
   left: var(--sidebar-width);
   right: 0;
   height: var(--topnav-height);
-  background: var(--color-bg-secondary);
+  background: rgba(12, 20, 38, 0.84);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
@@ -40,10 +41,12 @@
   padding: 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
+  border: 1px solid transparent;
 }
 
 .topnav-hamburger:hover {
-  background: var(--color-bg-tertiary);
+  background: rgba(42, 210, 255, 0.08);
+  border-color: rgba(42, 210, 255, 0.24);
 }
 
 .hamburger-line {
@@ -77,6 +80,7 @@
   height: 24px;
   border-radius: var(--radius-sm);
   object-fit: contain;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
 }
 
 .topnav-brand-text {
@@ -84,6 +88,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   display: none;
+  letter-spacing: -0.01em;
 }
 
 .topnav-brand-text span {
@@ -127,6 +132,7 @@
 .topnav-breadcrumb-current {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
 }
 
 .topnav-right {
@@ -137,12 +143,13 @@
 }
 
 .topnav-env-badge {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: 0.3rem 0.62rem;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-sm) + 2px);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
 }
 
 /* Hide env badge on very small screens */
@@ -155,16 +162,19 @@
 .topnav-env-badge.dev {
   background: var(--color-info-bg);
   color: var(--color-info);
+  border-color: rgba(102, 184, 255, 0.3);
 }
 
 .topnav-env-badge.staging {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+  border-color: rgba(255, 181, 73, 0.3);
 }
 
 .topnav-env-badge.prod {
   background: var(--color-error-bg);
   color: var(--color-error);
+  border-color: rgba(255, 111, 122, 0.3);
 }
 
 .topnav-user {
@@ -172,7 +182,8 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--color-bg-tertiary);
+  background: rgba(26, 40, 68, 0.78);
+  border: 1px solid rgba(42, 210, 255, 0.18);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -180,7 +191,7 @@
 }
 
 .topnav-user:hover {
-  background: var(--color-bg-hover);
+  background: rgba(32, 49, 81, 0.92);
 }
 
 .topnav-user-avatar {
@@ -234,8 +245,8 @@
   right: 0;
   margin-top: var(--spacing-xs);
   min-width: 180px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background: rgba(13, 21, 38, 0.97);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   opacity: 0;
@@ -263,7 +274,7 @@
 }
 
 .topnav-dropdown-item:hover {
-  background: var(--color-bg-tertiary);
+  background: rgba(42, 210, 255, 0.08);
   color: var(--color-text-primary);
 }
 
@@ -273,6 +284,11 @@
 
 .topnav-dropdown-item.danger:hover {
   background: var(--color-error-bg);
+}
+
+.topnav-dropdown-icon {
+  opacity: 0.95;
+  flex-shrink: 0;
 }
 
 .topnav-dropdown-divider {

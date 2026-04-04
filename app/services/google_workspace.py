@@ -2,57 +2,15 @@
 
 import csv
 import io
-import json
-import os
 
-
-GOOGLE_SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/spreadsheets",
-]
-
-
-def _load_service_account_info():
-    info_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    info_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
-
-    if info_json:
-        return json.loads(info_json)
-    if info_file:
-        with open(info_file, "r", encoding="utf-8") as handle:
-            return json.load(handle)
-    raise ValueError("Google service account credentials are not configured")
-
-
-def _credentials(subject_email=None):
-    from google.oauth2 import service_account
-
-    info = _load_service_account_info()
-    credentials = service_account.Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
-
-    subject = subject_email or os.environ.get("GOOGLE_IMPERSONATED_USER")
-    if subject:
-        credentials = credentials.with_subject(subject)
-    return credentials
-
-
-def _drive_service(subject_email=None):
-    from googleapiclient.discovery import build
-
-    return build("drive", "v3", credentials=_credentials(subject_email), cache_discovery=False)
-
-
-def _sheets_service(subject_email=None):
-    from googleapiclient.discovery import build
-
-    return build("sheets", "v4", credentials=_credentials(subject_email), cache_discovery=False)
+from app.integrations.google_auth import build_drive_client, build_sheets_client
 
 
 def publish_to_drive(file_bytes, filename, mime_type, folder_id, subject_email=None):
     """Upload a generated artifact to a Google Drive folder."""
     from googleapiclient.http import MediaInMemoryUpload
 
-    service = _drive_service(subject_email)
+    service = build_drive_client(subject_email=subject_email)
 
     metadata = {
         "name": filename,
@@ -98,7 +56,7 @@ def publish_to_sheet(file_bytes, mime_type, spreadsheet_id, sheet_name, a1_range
     if mode not in {"overwrite", "append"}:
         raise ValueError("mode must be overwrite or append")
 
-    service = _sheets_service(subject_email)
+    service = build_sheets_client(subject_email=subject_email)
     rows = _parse_rows_from_artifact(file_bytes, mime_type)
 
     target_range = f"{sheet_name}!{a1_range}" if sheet_name else a1_range

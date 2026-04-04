@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
 import logoIcon from "../assets/brand/logo-icon.svg";
+import AppIcon from "./ui/AppIcon";
 import "./TopNav.css";
 
 const pageNames = {
@@ -9,6 +10,25 @@ const pageNames = {
   uploads: "Uploads",
   jobs: "Jobs",
   "audit-logs": "Audit Logs",
+  approvals: "Approvals",
+  policies: "Policies",
+  "feature-flags": "Feature Flags",
+  "env-config": "Environment Config",
+  deployments: "Deployments",
+  incidents: "Incidents",
+  runbooks: "Runbooks",
+  workflows: "Workflows",
+  licenses: "Licenses",
+  costs: "Cost Tracker",
+  people: "People",
+  internship: "Internship Program",
+  "exports-reports": "Exports & Reports",
+  "agent-requests": "Agent Requests",
+  "service-accounts": "Service Accounts",
+  notifications: "Notifications",
+  "alert-rules": "Alert Rules",
+  integrations: "Integrations",
+  assets: "Assets",
   settings: "Settings",
   privacy: "Privacy Policy",
   support: "Support",
@@ -48,7 +68,7 @@ export default function TopNav({ onMenuToggle }) {
     : "??";
 
   const env = process.env.NODE_ENV || "development";
-  const envLabel = env === "production" ? "PROD" : env === "staging" ? "STAGING" : "DEV";
+  const envLabel = env === "production" ? "PROD" : env === "staging" ? "STAGE" : "DEV";
   const envClass = env === "production" ? "prod" : env === "staging" ? "staging" : "dev";
 
   return (
@@ -99,11 +119,13 @@ export default function TopNav({ onMenuToggle }) {
 
           <div className="topnav-dropdown-menu">
             <Link to="/ui/settings" className="topnav-dropdown-item">
-              ⚙️ Settings
+              <AppIcon name="settings" className="topnav-dropdown-icon" size={15} />
+              <span>Settings</span>
             </Link>
             <div className="topnav-dropdown-divider" />
             <Link to="/ui/logout" className="topnav-dropdown-item danger">
-              🚪 Logout
+              <AppIcon name="logout" className="topnav-dropdown-icon" size={15} />
+              <span>Logout</span>
             </Link>
           </div>
         </div>

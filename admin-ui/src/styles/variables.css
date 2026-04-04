@@ -1,58 +1,61 @@
 :root {
-  /* Primary Colors */
-  --color-primary: #00D4FF;
-  --color-primary-dark: #0099CC;
-  --color-primary-light: #66E5FF;
-  --color-primary-alpha: rgba(0, 212, 255, 0.1);
-  --color-primary-glow: rgba(0, 212, 255, 0.3);
+  /* Brand */
+  --color-primary: #2ad2ff;
+  --color-primary-dark: #14a7d6;
+  --color-primary-light: #8ce9ff;
+  --color-primary-alpha: rgba(42, 210, 255, 0.14);
+  --color-primary-glow: rgba(42, 210, 255, 0.36);
 
-  /* Background Colors */
-  --color-bg-primary: #0A0F1C;
-  --color-bg-secondary: #111827;
-  --color-bg-tertiary: #1F2937;
-  --color-bg-hover: #374151;
+  /* Surfaces */
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: #273752;
+  --color-bg-hover: #334155;
+  --color-bg-elevated: #1e293b;
+  --color-bg-inset: #0b1120;
 
-  /* Text Colors */
-  --color-text-primary: #F9FAFB;
-  --color-text-secondary: #9CA3AF;
-  --color-text-muted: #6B7280;
-  --color-text-inverse: #0A0F1C;
+  /* Text */
+  --color-text-primary: #edf3ff;
+  --color-text-secondary: #b4c1da;
+  --color-text-muted: #8392af;
+  --color-text-inverse: #07101f;
 
-  /* Status Colors */
-  --color-success: #10B981;
-  --color-success-bg: rgba(16, 185, 129, 0.1);
-  --color-warning: #F59E0B;
-  --color-warning-bg: rgba(245, 158, 11, 0.1);
-  --color-error: #EF4444;
-  --color-error-bg: rgba(239, 68, 68, 0.1);
-  --color-info: #3B82F6;
-  --color-info-bg: rgba(59, 130, 246, 0.1);
+  /* Status */
+  --color-success: #24c783;
+  --color-success-bg: rgba(36, 199, 131, 0.16);
+  --color-warning: #ffb549;
+  --color-warning-bg: rgba(255, 181, 73, 0.17);
+  --color-error: #ff6f7a;
+  --color-error-bg: rgba(255, 111, 122, 0.16);
+  --color-info: #66b8ff;
+  --color-info-bg: rgba(102, 184, 255, 0.16);
 
-  /* Border Colors */
-  --color-border: #374151;
-  --color-border-light: #4B5563;
-  --color-border-accent: rgba(0, 212, 255, 0.3);
+  /* Borders */
+  --color-border: #334155;
+  --color-border-light: #475569;
+  --color-border-accent: rgba(42, 210, 255, 0.45);
+  --focus-ring: 0 0 0 3px rgba(42, 210, 255, 0.3);
 
   /* Typography */
-  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-family-base: "Plus Jakarta Sans", "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  --font-family-mono: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", monospace;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 2rem;
+  --font-size-2xl: 1.55rem;
+  --font-size-3xl: 2.1rem;
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  --line-height-tight: 1.25;
-  --line-height-base: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-tight: 1.2;
+  --line-height-base: 1.55;
+  --line-height-relaxed: 1.8;
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -63,31 +66,37 @@
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
 
-  /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* Radius */
+  --radius-sm: 0.45rem;
+  --radius-md: 0.65rem;
+  --radius-lg: 0.95rem;
+  --radius-xl: 1.2rem;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px var(--color-primary-glow);
+  /* Elevation */
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 10px 28px rgba(3, 9, 20, 0.38);
+  --shadow-lg: 0 18px 38px rgba(2, 6, 15, 0.52);
+  --shadow-glow: 0 0 26px var(--color-primary-glow);
 
   /* Layout */
-  --sidebar-width: 260px;
-  --topnav-height: 64px;
+  --sidebar-width: 264px;
+  --topnav-height: 68px;
   --footer-height: 48px;
+  --layout-max-width: 1480px;
 
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-base: 250ms ease;
-  --transition-slow: 350ms ease;
+  /* Motion */
+  --transition-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Z-index */
   --z-dropdown: 100;
   --z-modal: 200;
   --z-toast: 300;
+
+  /* Legacy aliases for page-level CSS */
+  --accent: var(--color-primary);
+  --border-color: var(--color-border);
+  --text-muted: var(--color-text-muted);
 }

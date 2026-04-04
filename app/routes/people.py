@@ -3,7 +3,7 @@ import io
 from datetime import date, datetime
 
 from flask import Blueprint, current_app, jsonify, request, Response
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 
 from app.extensions import db
 from app.models import (
@@ -127,16 +127,18 @@ def _apply_people_filters(query):
         query = query.filter(Person.is_active == (is_active.lower() == "true"))
 
     if any([employment_type, intern_track, status, manager_person_id]):
-        query = query.join(Employment, Employment.person_id == Person.id)
+        employment_filters = []
         if employment_type:
-            query = query.filter(Employment.employment_type == employment_type)
+            employment_filters.append(Employment.employment_type == employment_type)
         if intern_track:
-            query = query.filter(Employment.intern_track == intern_track)
+            employment_filters.append(Employment.intern_track == intern_track)
         if status:
-            query = query.filter(Employment.status == status)
+            employment_filters.append(Employment.status == status)
         if manager_person_id:
-            query = query.filter(Employment.manager_person_id == manager_person_id)
-        query = query.distinct(Person.id)
+            employment_filters.append(Employment.manager_person_id == manager_person_id)
+        # Use relationship EXISTS semantics instead of JOIN + DISTINCT ON to keep
+        # query ordering portable and PostgreSQL-safe.
+        query = query.filter(Person.employments.any(and_(*employment_filters)))
 
     return query
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import TopNav from "./TopNav";
 import { Outlet, Link } from "react-router-dom";
+import AIManagerAssistant from "./AIManagerAssistant";
 import "./MainLayout.css";
 
 export default function MainLayout() {
@@ -41,6 +42,9 @@ export default function MainLayout() {
           </div>
         </footer>
       </main>
+      
+      {/* Global AI Management Assistant */}
+      <AIManagerAssistant />
     </div>
   );
 }

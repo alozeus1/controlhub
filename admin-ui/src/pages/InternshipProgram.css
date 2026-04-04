@@ -1,33 +1,43 @@
 .internship-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .internship-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .internship-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.85rem;
+  margin-bottom: 0.9rem;
 }
 
 .internship-table {
   width: 100%;
   border-collapse: collapse;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .internship-table th,
 .internship-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border-color, #2b2f38);
+  padding: 0.82rem 0.78rem;
+  border-bottom: 1px solid var(--color-border);
   text-align: left;
   vertical-align: top;
+}
+
+.internship-table th {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: rgba(18, 29, 50, 0.88);
 }
 
 .internship-table tbody tr {
@@ -35,11 +45,11 @@
 }
 
 .internship-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(42, 210, 255, 0.07);
 }
 
 .internship-table tbody tr.selected-row {
-  background: rgba(79, 179, 255, 0.12);
+  background: rgba(42, 210, 255, 0.14);
 }
 
 .cell-stack {
@@ -50,7 +60,7 @@
 
 .cell-stack span {
   font-size: 0.82rem;
-  color: var(--text-muted, #8b92a7);
+  color: var(--color-text-muted);
 }
 
 .template-list {
@@ -65,15 +75,16 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border-color, #2b2f38);
-  border-radius: 0.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(17, 28, 48, 0.6);
 }
 
 .template-item p {
   margin: 0.2rem 0 0;
   font-size: 0.85rem;
-  color: var(--text-muted, #8b92a7);
+  color: var(--color-text-muted);
 }
 
 .template-actions {
@@ -84,18 +95,21 @@
 
 .status-pill {
   font-size: 0.72rem;
-  padding: 0.2rem 0.45rem;
+  padding: 0.22rem 0.5rem;
   border-radius: 999px;
+  border: 1px solid transparent;
 }
 
 .status-pill.active {
   background: rgba(72, 196, 121, 0.12);
   color: #6dd99d;
+  border-color: rgba(72, 196, 121, 0.25);
 }
 
 .status-pill.inactive {
   background: rgba(245, 194, 107, 0.15);
   color: #f5c26b;
+  border-color: rgba(245, 194, 107, 0.26);
 }
 
 @media (max-width: 1100px) {

@@ -251,8 +251,47 @@ Related env vars:
 - `AGENT_ARTIFACT_URL_EXPIRY_SECONDS`
 - `ARTIFACTS_BUCKET_PREFIX`
 - `ARTIFACTS_KMS_KEY_ARN`
-- `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_FILE`
-- `GOOGLE_IMPERSONATED_USER`
+- `GOOGLE_WIF_AUDIENCE`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_WIF_CREDENTIALS_PATH` (mounted JSON file path)
+- `GOOGLE_IMPERSONATE_USER`
+- `GOOGLE_ARTIFACTS_FOLDER_ID`
+- `GOOGLE_SCOPES` (use only `drive.file` + `spreadsheets`)
+
+## Google WIF + Domain-Wide Delegation (Keyless)
+
+ControlHub supports keyless Google API auth via AWS Workload Identity Federation:
+
+- AWS credentials come from the AWS SDK default provider chain (App Runner compatible)
+- Google STS token exchange uses `GOOGLE_WIF_AUDIENCE`
+- Service account impersonation targets `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- Domain-Wide Delegation uses `GOOGLE_IMPERSONATE_USER` as subject
+
+Template config file:
+
+- `config/google-wif-external-account.template.json` (placeholders only)
+- Runtime mounted file path should be set via `GOOGLE_WIF_CREDENTIALS_PATH`
+- Do not commit real credentials or generated runtime config
+
+Local smoke test:
+
+```bash
+make test-google-wif
+# or
+python scripts/test_google_wif.py
+```
+
+Requirements for the test:
+
+- Valid AWS credentials in env/profile (no EC2 IMDS dependency)
+- WIF provider and service-account impersonation permissions configured in GCP
+- Workspace Admin has approved Domain-Wide Delegation client for the service account
+- `GOOGLE_ARTIFACTS_FOLDER_ID` is a writable Drive folder for the delegated user
+
+CI note:
+
+- `tests/test_google_wif_auth.py` is fully mocked and safe for CI.
+- CI does not execute live Google API calls unless you run `make test-google-wif` explicitly in a real environment.
 
 ## Security Notes
 

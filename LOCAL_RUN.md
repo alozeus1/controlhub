@@ -132,8 +132,12 @@ AGENT_ARTIFACT_STORAGE=local
 AGENT_ARTIFACT_URL_EXPIRY_SECONDS=300
 ARTIFACTS_BUCKET_PREFIX=controlhub-artifacts
 ARTIFACTS_KMS_KEY_ARN=<kms-key-arn-if-using-s3>
-GOOGLE_SERVICE_ACCOUNT_FILE=/absolute/path/to/google-service-account.json
-GOOGLE_IMPERSONATED_USER=controlhub-bot@yourdomain.com
+GOOGLE_WIF_AUDIENCE=//iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+GOOGLE_SERVICE_ACCOUNT_EMAIL=controlhub-agent@<project-id>.iam.gserviceaccount.com
+GOOGLE_WIF_CREDENTIALS_PATH=config/google-wif-external-account.json
+GOOGLE_IMPERSONATE_USER=info@yourdomain.com
+GOOGLE_ARTIFACTS_FOLDER_ID=<drive-folder-id>
+GOOGLE_SCOPES=https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets
 ```
 
 Generate a Fernet key:
@@ -141,6 +145,17 @@ Generate a Fernet key:
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+Test Google keyless auth + DWD:
+
+```bash
+make test-google-wif
+# or
+python scripts/test_google_wif.py
+```
+
+For App Runner deployments, mount/inject `GOOGLE_WIF_CREDENTIALS_PATH` and env vars via secrets manager.
+Do not rely on EC2 metadata (`169.254.169.254`) for this flow.
 
 ## Troubleshooting
 

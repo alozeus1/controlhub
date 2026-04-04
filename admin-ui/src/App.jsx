@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { FeaturesProvider } from "./contexts/FeaturesContext";
 
 import Login from "./pages/Login";
+import LandingPage from "./pages/LandingPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -52,8 +53,8 @@ export default function App() {
     <FeaturesProvider>
       <BrowserRouter>
         <Routes>
-          {/* Root redirects to login */}
-          <Route path="/" element={<Navigate to="/ui/login" replace />} />
+          {/* Public Landing Page */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* Public Routes */}
           <Route path="/ui/login" element={<Login />} />

@@ -61,6 +61,18 @@ class Config:
         self.AGENT_EXTERNAL_SHEET_ALLOWLIST = os.environ.get("AGENT_EXTERNAL_SHEET_ALLOWLIST", "")
         self.ARTIFACTS_BUCKET_PREFIX = os.environ.get("ARTIFACTS_BUCKET_PREFIX", "controlhub-artifacts")
         self.ARTIFACTS_KMS_KEY_ARN = os.environ.get("ARTIFACTS_KMS_KEY_ARN")
+        self.GOOGLE_WIF_AUDIENCE = os.environ.get("GOOGLE_WIF_AUDIENCE")
+        self.GOOGLE_SERVICE_ACCOUNT_EMAIL = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
+        self.GOOGLE_WIF_CREDENTIALS_PATH = os.environ.get("GOOGLE_WIF_CREDENTIALS_PATH")
+        self.GOOGLE_IMPERSONATE_USER = os.environ.get("GOOGLE_IMPERSONATE_USER")
+        self.GOOGLE_ARTIFACTS_FOLDER_ID = os.environ.get("GOOGLE_ARTIFACTS_FOLDER_ID")
+        self.GOOGLE_SCOPES = os.environ.get(
+            "GOOGLE_SCOPES",
+            "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets",
+        )
+        self.GOOGLE_SERVICE_ACCOUNT_IMPERSONATION_URL = os.environ.get("GOOGLE_SERVICE_ACCOUNT_IMPERSONATION_URL")
+
+        # Legacy key-based integration vars kept for backward compatibility.
         self.GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
         self.GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
         self.GOOGLE_IMPERSONATED_USER = os.environ.get("GOOGLE_IMPERSONATED_USER")

@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import './variables.css';
+@import './components.css';
 
 /* Reset */
 *, *::before, *::after {
@@ -12,6 +13,7 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -20,6 +22,10 @@ body {
   line-height: var(--line-height-base);
   color: var(--color-text-primary);
   background-color: var(--color-bg-primary);
+  background-image:
+    radial-gradient(circle at 8% -12%, rgba(42, 210, 255, 0.2), transparent 46%),
+    radial-gradient(circle at 90% -5%, rgba(121, 162, 255, 0.13), transparent 40%),
+    linear-gradient(180deg, #0a1326 0%, #070d1a 55%, #050a15 100%);
   min-height: 100vh;
 }
 
@@ -52,8 +58,9 @@ a:hover {
 
 /* Focus styles for accessibility */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
 }
 
 /* Scrollbar */
@@ -63,16 +70,16 @@ a:hover {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-inset);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-border-light);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-light);
+  background: var(--color-primary-dark);
 }
 
 /* Selection */
@@ -122,14 +129,14 @@ th, td {
 th {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
-  background: var(--color-bg-secondary);
+  background: rgba(25, 39, 64, 0.78);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 tr:hover {
-  background: var(--color-bg-tertiary);
+  background: rgba(32, 49, 81, 0.36);
 }
 
 /* Forms */
@@ -154,7 +161,18 @@ input, textarea, select {
 /* Grid background pattern */
 .grid-pattern {
   background-image:
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(42, 210, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 210, 255, 0.035) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

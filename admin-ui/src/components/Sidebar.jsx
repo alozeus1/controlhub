@@ -1,58 +1,59 @@
 import { NavLink } from "react-router-dom";
 import logoIcon from "../assets/brand/logo-icon.svg";
 import { useFeatures } from "../contexts/FeaturesContext";
+import AppIcon from "./ui/AppIcon";
 import "./Sidebar.css";
 
 const getNavItems = (features) => {
   const items = [
     { section: "Overview", items: [
-      { to: "/ui/dashboard", icon: "📊", label: "Dashboard" },
+      { to: "/ui/dashboard", icon: "dashboard", label: "Dashboard" },
     ]},
     { section: "Management", items: [
-      { to: "/ui/users", icon: "👥", label: "Users" },
-      { to: "/ui/uploads", icon: "📁", label: "Uploads" },
-      { to: "/ui/jobs", icon: "⚙️", label: "Jobs" },
+      { to: "/ui/users", icon: "users", label: "Users" },
+      { to: "/ui/uploads", icon: "folder", label: "Uploads" },
+      { to: "/ui/jobs", icon: "automation", label: "Jobs" },
     ]},
     { section: "Governance", items: [
-      { to: "/ui/approvals", icon: "✅", label: "Approvals" },
-      { to: "/ui/policies", icon: "📜", label: "Policies" },
+      { to: "/ui/approvals", icon: "shield", label: "Approvals" },
+      { to: "/ui/policies", icon: "document", label: "Policies" },
     ]},
     { section: "Security", items: [
-      { to: "/ui/secrets", icon: "🔐", label: "Secrets" },
-      { to: "/ui/certificates", icon: "🛡️", label: "Certificates" },
-      { to: "/ui/feature-flags", icon: "🚩", label: "Feature Flags" },
+      { to: "/ui/secrets", icon: "lock", label: "Secrets" },
+      { to: "/ui/certificates", icon: "shield", label: "Certificates" },
+      { to: "/ui/feature-flags", icon: "flag", label: "Feature Flags" },
     ]},
     { section: "DevOps", items: [
-      { to: "/ui/env-config", icon: "🗂️", label: "Env Config" },
-      { to: "/ui/deployments", icon: "🚀", label: "Deployments" },
-      { to: "/ui/incidents", icon: "🚨", label: "Incidents" },
-      { to: "/ui/runbooks", icon: "📖", label: "Runbooks" },
+      { to: "/ui/env-config", icon: "document", label: "Env Config" },
+      { to: "/ui/deployments", icon: "cloud", label: "Deployments" },
+      { to: "/ui/incidents", icon: "alert", label: "Incidents" },
+      { to: "/ui/runbooks", icon: "document", label: "Runbooks" },
     ]},
     { section: "Operations", items: [
-      { to: "/ui/workflows", icon: "🔄", label: "Workflows" },
-      { to: "/ui/licenses", icon: "📄", label: "Licenses" },
-      { to: "/ui/costs", icon: "💰", label: "Cost Tracker" },
-      ...(features.people ? [{ to: "/ui/people", icon: "🧑‍💼", label: "People" }] : []),
-      ...(features.internship_program ? [{ to: "/ui/internship", icon: "🎓", label: "Internship Program" }] : []),
-      ...(features.agent_service ? [{ to: "/ui/exports-reports", icon: "🧾", label: "Exports & Reports" }] : []),
-      ...(features.agent_service ? [{ to: "/ui/agent-requests", icon: "🤖", label: "Agent Requests" }] : []),
+      { to: "/ui/workflows", icon: "automation", label: "Workflows" },
+      { to: "/ui/licenses", icon: "document", label: "Licenses" },
+      { to: "/ui/costs", icon: "currency", label: "Cost Tracker" },
+      ...(features.people ? [{ to: "/ui/people", icon: "users", label: "People" }] : []),
+      ...(features.internship_program ? [{ to: "/ui/internship", icon: "users", label: "Internship Program" }] : []),
+      ...(features.agent_service ? [{ to: "/ui/exports-reports", icon: "report", label: "Exports & Reports" }] : []),
+      ...(features.agent_service ? [{ to: "/ui/agent-requests", icon: "robot", label: "Agent Requests" }] : []),
     ]},
   ];
 
   const enterpriseItems = [];
 
   if (features.service_accounts) {
-    enterpriseItems.push({ to: "/ui/service-accounts", icon: "🔑", label: "Service Accounts" });
+    enterpriseItems.push({ to: "/ui/service-accounts", icon: "lock", label: "Service Accounts" });
   }
   if (features.notifications) {
-    enterpriseItems.push({ to: "/ui/notifications", icon: "🔔", label: "Notifications" });
-    enterpriseItems.push({ to: "/ui/alert-rules", icon: "⚡", label: "Alert Rules" });
+    enterpriseItems.push({ to: "/ui/notifications", icon: "bell", label: "Notifications" });
+    enterpriseItems.push({ to: "/ui/alert-rules", icon: "alert", label: "Alert Rules" });
   }
   if (features.integrations) {
-    enterpriseItems.push({ to: "/ui/integrations", icon: "🔗", label: "Integrations" });
+    enterpriseItems.push({ to: "/ui/integrations", icon: "link", label: "Integrations" });
   }
   if (features.assets) {
-    enterpriseItems.push({ to: "/ui/assets", icon: "🖥️", label: "Assets" });
+    enterpriseItems.push({ to: "/ui/assets", icon: "monitor", label: "Assets" });
   }
 
   if (enterpriseItems.length > 0) {
@@ -60,8 +61,8 @@ const getNavItems = (features) => {
   }
 
   items.push({ section: "System", items: [
-    { to: "/ui/audit-logs", icon: "📋", label: "Audit Logs" },
-    { to: "/ui/settings", icon: "🔧", label: "Settings" },
+    { to: "/ui/audit-logs", icon: "document", label: "Audit Logs" },
+    { to: "/ui/settings", icon: "settings", label: "Settings" },
   ]});
 
   return items;
@@ -110,7 +111,9 @@ export default function Sidebar({ isOpen, onClose }) {
                   }
                   onClick={onClose}
                 >
-                  <span className="sidebar-link-icon">{item.icon}</span>
+                  <span className="sidebar-link-icon">
+                    <AppIcon name={item.icon} />
+                  </span>
                   {item.label}
                 </NavLink>
               ))}

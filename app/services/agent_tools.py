@@ -401,7 +401,10 @@ def publish_to_drive(artifact_bytes, artifact, destination):
         filename=artifact.filename,
         mime_type=artifact.mime_type,
         folder_id=folder_id,
-        subject_email=os.environ.get("GOOGLE_IMPERSONATED_USER"),
+        subject_email=(
+            os.environ.get("GOOGLE_IMPERSONATE_USER")
+            or os.environ.get("GOOGLE_IMPERSONATED_USER")
+        ),
     )
 
 
@@ -421,7 +424,10 @@ def publish_to_sheet(artifact_bytes, artifact, destination, mode="overwrite"):
         sheet_name=sheet_name,
         a1_range=a1_range,
         mode=mode,
-        subject_email=os.environ.get("GOOGLE_IMPERSONATED_USER"),
+        subject_email=(
+            os.environ.get("GOOGLE_IMPERSONATE_USER")
+            or os.environ.get("GOOGLE_IMPERSONATED_USER")
+        ),
     )
 
 

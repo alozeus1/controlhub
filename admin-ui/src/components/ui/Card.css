@@ -1,8 +1,15 @@
 .card {
-  background: var(--color-bg-secondary);
+  background: linear-gradient(180deg, rgba(18, 29, 50, 0.92), rgba(16, 26, 46, 0.94));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.card:hover {
+  border-color: rgba(42, 210, 255, 0.28);
+  box-shadow: var(--shadow-md);
 }
 
 .card-header {
@@ -22,11 +29,12 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .card-subtitle {
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   margin: var(--spacing-xs) 0 0;
 }
 
@@ -44,5 +52,5 @@
   gap: var(--spacing-sm);
   padding: var(--spacing-md) var(--spacing-lg);
   border-top: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+  background: rgba(10, 17, 31, 0.42);
 }

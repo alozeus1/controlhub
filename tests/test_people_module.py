@@ -5,6 +5,8 @@ from app.models import (
     PerformanceCheckin,
     Policy,
 )
+from app.routes.people import _apply_people_filters, _base_people_query
+from sqlalchemy.dialects import postgresql
 
 
 def _make_person(created_by_id, first_name, last_name, email, user_id=None, **kwargs):
@@ -191,3 +193,49 @@ def test_convert_intern_to_full_time_with_approval(client, create_user, auth_hea
     assert full_time is not None
     assert full_time.title == "Platform Engineer I"
 
+
+def test_people_list_filters_by_employment_type(client, create_user, auth_header):
+    people_manager = create_user("pm@acme.test", role="people_manager")
+    creator = create_user("creator@acme.test", role="admin")
+
+    intern = _make_person(creator.id, "Ivy", "Intern", "ivy.intern@acme.test")
+    fte = _make_person(creator.id, "Fred", "Fte", "fred.fte@acme.test")
+    _make_employment(creator.id, intern.id, employment_type="intern", intern_track="software", status="active")
+    _make_employment(creator.id, fte.id, employment_type="full_time", status="active")
+    db.session.commit()
+
+    res = client.get("/admin/people?employment_type=intern", headers=auth_header(people_manager))
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["id"] == intern.id
+
+
+def test_people_export_csv_filters_by_employment_type(client, create_user, auth_header):
+    people_manager = create_user("pm2@acme.test", role="people_manager")
+    creator = create_user("creator2@acme.test", role="admin")
+
+    intern = _make_person(creator.id, "Nia", "Intern", "nia.intern@acme.test")
+    fte = _make_person(creator.id, "Noel", "Fte", "noel.fte@acme.test")
+    _make_employment(creator.id, intern.id, employment_type="intern", intern_track="devops", status="active")
+    _make_employment(creator.id, fte.id, employment_type="full_time", status="active")
+    db.session.commit()
+
+    res = client.get("/admin/people/export/csv?employment_type=intern", headers=auth_header(people_manager))
+    assert res.status_code == 200
+    csv_text = res.get_data(as_text=True)
+    assert "Nia Intern" in csv_text
+    assert "Noel Fte" not in csv_text
+
+
+def test_people_filtered_query_does_not_emit_postgres_distinct_on(app):
+    with app.test_request_context("/admin/people?employment_type=intern"):
+        query = _apply_people_filters(_base_people_query()).order_by(Person.created_at.desc())
+        sql = str(
+            query.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    assert "DISTINCT ON" not in sql.upper()
