@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Lock, ChevronRight, BarChart, Bot, Activity } from 'lucide-react';
+import { Sparkles, Users, Lock, ChevronRight, BarChart, Bot, Activity, Layers, CheckCircle2 } from 'lucide-react';
+import { Player } from '@remotion/player';
+import { WelcomeVideo } from '../remotion/WelcomeVideo';
+import heroImg from '../assets/hero_abstract_glass.png';
+import copilotImg from '../assets/feature_ai_copilot.png';
 import './LandingPage.css';
 
 export default function LandingPage() {
@@ -20,8 +24,8 @@ export default function LandingPage() {
         <div className="hero-bg-glow"></div>
         <motion.div 
           className="hero-content"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
         >
           <h1 className="hero-title">Intelligent Workforce Management</h1>
@@ -34,6 +38,57 @@ export default function LandingPage() {
             </Link>
           </div>
         </motion.div>
+        
+        <motion.div
+           className="hero-image-container"
+           initial={{ opacity: 0, scale: 0.9, y: 20 }}
+           animate={{ opacity: 1, scale: 1, y: 0 }}
+           transition={{ duration: 0.8, delay: 0.2 }}
+           style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)', boxShadow: '0 0 30px rgba(42, 210, 255, 0.15)' }}
+        >
+          <Player
+            component={WelcomeVideo}
+            durationInFrames={150}
+            compositionWidth={1280}
+            compositionHeight={720}
+            fps={30}
+            style={{
+              width: '100%',
+              aspectRatio: '16/9',
+            }}
+            controls
+            autoPlay
+            loop
+          />
+        </motion.div>
+      </section>
+
+      <section className="details-section">
+        <div className="detail-row">
+           <motion.div 
+             className="detail-content"
+             initial={{ opacity: 0, x: -30 }}
+             whileInView={{ opacity: 1, x: 0 }}
+             viewport={{ once: true }}
+           >
+             <h2>Unify People and IT Capabilities</h2>
+             <p>Move beyond split spreadsheets. ControlHub provides a holistic view of your workforce, bridging the gap between HR personnel tracking and IT asset management seamlessly.</p>
+             <ul className="feature-list">
+               <li><CheckCircle2 color="var(--color-primary)" /> Dynamic Intern Cohort Tracking</li>
+               <li><CheckCircle2 color="var(--color-primary)" /> Identity and System Access Correlations</li>
+               <li><CheckCircle2 color="var(--color-primary)" /> Performance and Feedback Aggregation</li>
+               <li><CheckCircle2 color="var(--color-primary)" /> Equipment & Lifecycle Auditing</li>
+             </ul>
+           </motion.div>
+           <motion.div 
+              className="detail-image"
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+           >
+             <img src={copilotImg} alt="AI Copilot Core Analysis" />
+           </motion.div>
+        </div>
       </section>
 
       <section className="demo-section">

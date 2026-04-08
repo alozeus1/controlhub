@@ -19,15 +19,23 @@
 /* Brand panel */
 .login-brand-panel {
   display: none;
-  width: 45%;
-  background: linear-gradient(135deg, #0a0f1e 0%, #0d1b2e 50%, #0a1628 100%);
-  border-right: 1px solid var(--color-border);
+  width: 50%;
+  background: url('../assets/auth_split_bg.png') center/cover no-repeat;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   position: relative;
   z-index: 1;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
   padding: var(--spacing-2xl);
+  overflow: hidden;
+}
+
+.login-brand-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.4));
+  z-index: -1;
 }
 
 @media (min-width: 900px) {

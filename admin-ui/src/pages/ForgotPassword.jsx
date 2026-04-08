@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../utils/api";
 import controlhubLogo from "../assets/brand/controlhub-logo.svg";
+import "./Login.css";
 import "./ForgotPassword.css";
 
 export default function ForgotPassword() {
@@ -25,17 +26,32 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="forgot-page">
-      <div className="forgot-bg" />
-      <div className="forgot-container">
-        <div className="forgot-card">
-          <div className="forgot-header">
-            <img src={controlhubLogo} alt="Web Forx ControlHub" className="forgot-logo" />
-            <h1 className="forgot-title">Reset your password</h1>
-            <p className="forgot-subtitle">
-              Enter your email address and we'll send you a reset link.
-            </p>
-          </div>
+    <div className="login-page">
+      <div className="login-bg" />
+      
+      {/* Brand panel reused from Login */}
+      <div className="login-brand-panel">
+        <div className="login-brand-content">
+          <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-brand-logo" />
+          <h2 className="login-brand-title">Web Forx ControlHub</h2>
+          <p className="login-brand-subtitle">
+            Enterprise-grade admin platform for managing users, assets, and governance at scale.
+          </p>
+        </div>
+      </div>
+
+      <div className="login-form-panel">
+        <div className="login-container">
+          <div className="login-card">
+            <div className="login-header">
+              <div className="login-logo login-logo-mobile">
+                <img src={controlhubLogo} alt="Web Forx ControlHub" className="login-logo-img" />
+              </div>
+              <h1 className="login-title">Reset your password</h1>
+              <p className="login-subtitle">
+                Enter your email address and we'll send you a reset link.
+              </p>
+            </div>
 
           {submitted ? (
             <div className="forgot-success">
@@ -50,7 +66,7 @@ export default function ForgotPassword() {
           ) : (
             <>
               {error && <div className="forgot-error">{error}</div>}
-              <form onSubmit={handleSubmit} className="forgot-form">
+              <form onSubmit={handleSubmit} className="login-form">
                 <div className="form-group">
                   <label className="form-label">Email address</label>
                   <input
@@ -63,10 +79,10 @@ export default function ForgotPassword() {
                     autoComplete="email"
                   />
                 </div>
-                <button className="forgot-button" type="submit" disabled={loading}>
+                <button className="login-button" type="submit" disabled={loading}>
                   {loading ? (
-                    <span className="forgot-button-loading">
-                      <span className="forgot-spinner" />
+                    <span className="login-button-loading">
+                      <span className="login-spinner" />
                       Sending...
                     </span>
                   ) : (
@@ -74,14 +90,15 @@ export default function ForgotPassword() {
                   )}
                 </button>
               </form>
-              <div className="forgot-footer">
-                <Link to="/ui/login" className="forgot-back-link">
+              <div className="login-footer">
+                <Link to="/ui/login" className="login-forgot-link">
                   ← Back to sign in
                 </Link>
               </div>
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -5,7 +5,8 @@ import Input, { Select, TextArea } from "../components/ui/Input";
 import { PageLoader } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import { motion } from "framer-motion";
-import { Calendar, Users, ListChecks, CheckCircle, PlayCircle, Plus } from 'lucide-react';
+import { Calendar, Users, ListChecks, CheckCircle, PlayCircle, Plus, BarChart2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import "./InternshipProgram.css";
 
 const EMPTY_PROGRAM_FORM = { name: "", description: "", start_date: "", end_date: "", status: "planned" };
@@ -17,12 +18,14 @@ export default function InternshipProgram() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const [metadata, setMetadata] = useState({ program_statuses: [], cohort_statuses: [], cohort_member_roles: [] });
   const [programs, setPrograms] = useState([]);
   const [cohorts, setCohorts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [internCandidates, setInternCandidates] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState([]);
 
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [members, setMembers] = useState([]);
@@ -35,24 +38,30 @@ export default function InternshipProgram() {
   const selectedCohort = useMemo(() => cohorts.find(item => String(item.id) === String(selectedCohortId)), [cohorts, selectedCohortId]);
 
   const loadBaseData = useCallback(async () => {
-    const [metaRes, programsRes, cohortsRes, templatesRes, peopleRes] = await Promise.all([
-      api.get("/admin/internship/metadata"),
-      api.get("/admin/internship/programs?page=1&page_size=100"),
-      api.get("/admin/internship/cohorts?page=1&page_size=100"),
-      api.get("/admin/internship/onboarding/templates"),
-      api.get("/admin/people?employment_type=intern&page=1&page_size=200"),
-    ]);
+    try {
+      const [metaRes, programsRes, cohortsRes, templatesRes, peopleRes, analyticsRes] = await Promise.all([
+        api.get("/admin/internship/metadata"),
+        api.get("/admin/internship/programs?page=1&page_size=100"),
+        api.get("/admin/internship/cohorts?page=1&page_size=100"),
+        api.get("/admin/internship/onboarding/templates"),
+        api.get("/admin/people?employment_type=intern&page=1&page_size=200"),
+        api.get("/admin/internship/cohort-analysis").catch(() => ({ data: { cohort_analytics: [] } }))
+      ]);
 
-    setMetadata(metaRes.data || {});
-    setPrograms(programsRes.data.items || []);
-    setCohorts(cohortsRes.data.items || []);
-    setTemplates(templatesRes.data.items || []);
-    setInternCandidates(peopleRes.data.items || []);
+      setMetadata(metaRes.data || {});
+      setPrograms(programsRes.data.items || []);
+      setCohorts(cohortsRes.data.items || []);
+      setTemplates(templatesRes.data.items || []);
+      setInternCandidates(peopleRes.data.items || []);
+      setAnalyticsData(analyticsRes.data.cohort_analytics || []);
 
-    if (!selectedCohortId && (cohortsRes.data.items || []).length > 0) {
-      const first = cohortsRes.data.items[0];
-      setSelectedCohortId(String(first.id));
-      setMemberForm(prev => ({ ...prev, cohort_id: String(first.id) }));
+      if (!selectedCohortId && (cohortsRes.data.items || []).length > 0) {
+        const first = cohortsRes.data.items[0];
+        setSelectedCohortId(String(first.id));
+        setMemberForm(prev => ({ ...prev, cohort_id: String(first.id) }));
+      }
+    } catch (err) {
+      throw err;
     }
   }, [selectedCohortId]);
 
@@ -74,7 +83,9 @@ export default function InternshipProgram() {
   }, [loadBaseData, toast]);
 
   useEffect(() => {
-    loadMembers(selectedCohortId).catch(err => toast.error(err.message));
+    if (selectedCohortId) {
+      loadMembers(selectedCohortId).catch(err => toast.error(err.message));
+    }
   }, [loadMembers, selectedCohortId, toast]);
 
   const refresh = async () => { await loadBaseData(); await loadMembers(selectedCohortId); };
@@ -138,13 +149,12 @@ export default function InternshipProgram() {
 
   if (loading) return <PageLoader message="Loading academy module..." />;
 
-  // Quick stats calculations
   const activeCohorts = cohorts.filter(c => c.status === 'active').length;
   const plannedPrograms = programs.filter(p => p.status === 'planned').length;
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="internship-page">
-      <div className="page-header" style={{ marginBottom: '2rem' }}>
+      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title text-gradient">Academy & Internship Hub</h1>
           <p className="page-subtitle">Shape the next generation of talent through programs and connected cohorts.</p>
@@ -154,172 +164,172 @@ export default function InternshipProgram() {
         </div>
       </div>
 
-      {/* KPI Widgets */}
-      <div className="grid grid-3" style={{ marginBottom: '2rem' }}>
-         <div className="glass-panel">
-            <div className="glass-header"><h3><Calendar size={18} color="#2ad2ff"/> Active Programs</h3></div>
-            <div className="metric-value">{programs.length}</div>
-            <div className="metric-label">{plannedPrograms} planned for future</div>
-         </div>
-         <div className="glass-panel">
-            <div className="glass-header"><h3><PlayCircle size={18} color="#24c783"/> Running Cohorts</h3></div>
-            <div className="metric-value">{activeCohorts}</div>
-            <div className="metric-label">Across all active tracks</div>
-         </div>
-         <div className="glass-panel">
-            <div className="glass-header"><h3><ListChecks size={18} color="#ffb549"/> Active Requirements</h3></div>
-            <div className="metric-value">{templates.filter(t => t.is_active).length}</div>
-            <div className="metric-label">Global onboarding templates</div>
-         </div>
+      <div className="tabs-container" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--color-border)' }}>
+        <button className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
+        <button className={`tab-button ${activeTab === 'cohorts' ? 'active' : ''}`} onClick={() => setActiveTab('cohorts')}>Cohorts & Members</button>
+        <button className={`tab-button ${activeTab === 'requirements' ? 'active' : ''}`} onClick={() => setActiveTab('requirements')}>Requirements</button>
+        <button className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</button>
       </div>
 
-      <div className="internship-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-        <div className="glass-panel">
-          <div className="glass-header">
-             <h3>Programs Definition</h3>
-          </div>
-          <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="internship-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input placeholder="Program Name" value={programForm.name} onChange={(e) => setProgramForm((prev) => ({ ...prev, name: e.target.value }))} />
-              <Select value={programForm.status} onChange={(e) => setProgramForm((prev) => ({ ...prev, status: e.target.value }))}>
-                {metadata.program_statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-              </Select>
-              <Input type="date" value={programForm.start_date} onChange={(e) => setProgramForm((prev) => ({ ...prev, start_date: e.target.value }))} />
-              <Input type="date" value={programForm.end_date} onChange={(e) => setProgramForm((prev) => ({ ...prev, end_date: e.target.value }))} />
-            </div>
-            <TextArea placeholder="Short Description..." rows={2} value={programForm.description} onChange={(e) => setProgramForm((prev) => ({ ...prev, description: e.target.value }))} />
-            <button className="btn-primary" disabled={saving} onClick={createProgram}><Plus size={16}/> Draft Program</button>
+      {activeTab === 'overview' && (
+        <>
+          <div className="grid grid-3" style={{ marginBottom: '2rem' }}>
+             <div className="glass-panel">
+                <div className="glass-header"><h3><Calendar size={18} color="#2ad2ff"/> Active Programs</h3></div>
+                <div className="metric-value">{programs.length}</div>
+                <div className="metric-label">{plannedPrograms} planned for future</div>
+             </div>
+             <div className="glass-panel">
+                <div className="glass-header"><h3><PlayCircle size={18} color="#24c783"/> Running Cohorts</h3></div>
+                <div className="metric-value">{activeCohorts}</div>
+                <div className="metric-label">Across all active tracks</div>
+             </div>
+             <div className="glass-panel">
+                <div className="glass-header"><h3><ListChecks size={18} color="#ffb549"/> Active Requirements</h3></div>
+                <div className="metric-value">{templates.filter(t => t.is_active).length}</div>
+                <div className="metric-label">Global onboarding templates</div>
+             </div>
           </div>
 
-          <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Identity</th>
-                  <th>Dates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {programs.map((program) => (
-                  <tr key={program.id}>
-                    <td>
-                      <strong style={{ display: 'block', color: 'var(--color-text-primary)' }}>{program.name}</strong>
-                      <span className={`badge ${program.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{program.status}</span>
-                    </td>
-                    <td className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-                      {program.start_date || "-"} <br/> to {program.end_date || "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="glass-panel">
+            <div className="glass-header">
+               <h3>Programs Definition</h3>
+            </div>
+            <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="internship-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <Input placeholder="Program Name" value={programForm.name} onChange={(e) => setProgramForm((prev) => ({ ...prev, name: e.target.value }))} />
+                <Select value={programForm.status} onChange={(e) => setProgramForm((prev) => ({ ...prev, status: e.target.value }))}>
+                  {metadata.program_statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                </Select>
+                <Input type="date" value={programForm.start_date} onChange={(e) => setProgramForm((prev) => ({ ...prev, start_date: e.target.value }))} />
+                <Input type="date" value={programForm.end_date} onChange={(e) => setProgramForm((prev) => ({ ...prev, end_date: e.target.value }))} />
+              </div>
+              <TextArea placeholder="Short Description..." rows={2} value={programForm.description} onChange={(e) => setProgramForm((prev) => ({ ...prev, description: e.target.value }))} />
+              <button className="btn-primary" disabled={saving} onClick={createProgram}><Plus size={16}/> Draft Program</button>
+            </div>
+
+            <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
+              <table>
+                <thead>
+                  <tr><th>Identity</th><th>Dates</th></tr>
+                </thead>
+                <tbody>
+                  {programs.map((program) => (
+                    <tr key={program.id}>
+                      <td>
+                        <strong style={{ display: 'block', color: 'var(--color-text-primary)' }}>{program.name}</strong>
+                        <span className={`badge ${program.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{program.status}</span>
+                      </td>
+                      <td className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
+                        {program.start_date || "-"} <br/> to {program.end_date || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'cohorts' && (
+        <div className="internship-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div className="glass-panel">
+            <div className="glass-header"><h3>Active Cohorts</h3></div>
+            <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="internship-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <Select value={cohortForm.program_id} onChange={(e) => setCohortForm((prev) => ({ ...prev, program_id: e.target.value }))}>
+                  <option value="">Link to Program</option>
+                  {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+                </Select>
+                <Input placeholder="Cohort Identifier" value={cohortForm.name} onChange={(e) => setCohortForm((prev) => ({ ...prev, name: e.target.value }))} />
+                <Input placeholder="Engineering, Design..." value={cohortForm.track} onChange={(e) => setCohortForm((prev) => ({ ...prev, track: e.target.value }))} />
+                <Select value={cohortForm.status} onChange={(e) => setCohortForm((prev) => ({ ...prev, status: e.target.value }))}>
+                  {metadata.cohort_statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                </Select>
+                <Input type="date" value={cohortForm.start_date} onChange={(e) => setCohortForm((prev) => ({ ...prev, start_date: e.target.value }))} />
+                <Input type="date" value={cohortForm.end_date} onChange={(e) => setCohortForm((prev) => ({ ...prev, end_date: e.target.value }))} />
+              </div>
+              <button className="btn-primary" disabled={saving} onClick={createCohort}><Plus size={16}/> Initialize Cohort</button>
+            </div>
+
+            <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
+              <table>
+                <thead>
+                  <tr><th>Cohort</th><th>Track & Status</th></tr>
+                </thead>
+                <tbody>
+                  {cohorts.map((cohort) => (
+                    <tr key={cohort.id} style={{ cursor: 'pointer', background: String(selectedCohortId) === String(cohort.id) ? 'var(--color-bg-tertiary)' : 'transparent' }} onClick={() => {
+                      setSelectedCohortId(String(cohort.id));
+                      setMemberForm((prev) => ({ ...prev, cohort_id: String(cohort.id) }));
+                    }}>
+                      <td>
+                        <strong style={{ display: 'block', color: 'var(--color-primary)' }}>{cohort.name}</strong>
+                        <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{cohort.program_name || "-"}</span>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>{cohort.track}</div>
+                        <span className={`badge ${cohort.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{cohort.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="glass-panel">
+            <div className="glass-header">
+              <h3><Users size={18}/> Cohort Roster {selectedCohort ? `(${selectedCohort.name})` : ''}</h3>
+            </div>
+            <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                <Select value={memberForm.cohort_id} onChange={(e) => {
+                  setMemberForm((prev) => ({ ...prev, cohort_id: e.target.value }));
+                  setSelectedCohortId(e.target.value);
+                }}>
+                  <option value="">Select Cohort</option>
+                  {cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}
+                </Select>
+                <Select value={memberForm.person_id} onChange={(e) => setMemberForm((prev) => ({ ...prev, person_id: e.target.value }))}>
+                  <option value="">Select Candidate...</option>
+                  {internCandidates.map((person) => <option key={person.id} value={person.id}>{person.full_name}</option>)}
+                </Select>
+                <Select value={memberForm.role} onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value }))}>
+                  {metadata.cohort_member_roles.map((role) => <option key={role} value={role}>{role}</option>)}
+                </Select>
+              </div>
+              <button className="btn-primary" disabled={saving || !memberForm.cohort_id || !memberForm.person_id} onClick={addMember}><Plus size={16}/> Enlist Member</button>
+            </div>
+
+            <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
+              <table>
+                <thead>
+                  <tr><th>Identity</th><th>Role</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                  {members.length === 0 ? <tr><td colSpan={3} className="text-muted" style={{ textAlign: 'center', padding: '1rem' }}>Empty Roster.</td></tr> : members.map((member) => (
+                    <tr key={member.id}>
+                      <td>
+                        <strong style={{ display: 'block', color: 'var(--color-text-primary)' }}>{member.person_name}</strong>
+                        <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{member.person_email}</span>
+                      </td>
+                      <td>{member.role}</td>
+                      <td><button className="btn-glass-danger" disabled={saving} onClick={() => removeMember(member)}>Evict</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+      )}
 
+      {activeTab === 'requirements' && (
         <div className="glass-panel">
           <div className="glass-header">
-            <h3>Active Cohorts</h3>
-          </div>
-          <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="internship-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Select value={cohortForm.program_id} onChange={(e) => setCohortForm((prev) => ({ ...prev, program_id: e.target.value }))}>
-                <option value="">Link to Program</option>
-                {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-              </Select>
-              <Input placeholder="Cohort Identifier" value={cohortForm.name} onChange={(e) => setCohortForm((prev) => ({ ...prev, name: e.target.value }))} />
-              <Input placeholder="Engineering, Design..." value={cohortForm.track} onChange={(e) => setCohortForm((prev) => ({ ...prev, track: e.target.value }))} />
-              <Select value={cohortForm.status} onChange={(e) => setCohortForm((prev) => ({ ...prev, status: e.target.value }))}>
-                {metadata.cohort_statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-              </Select>
-              <Input type="date" value={cohortForm.start_date} onChange={(e) => setCohortForm((prev) => ({ ...prev, start_date: e.target.value }))} />
-              <Input type="date" value={cohortForm.end_date} onChange={(e) => setCohortForm((prev) => ({ ...prev, end_date: e.target.value }))} />
-            </div>
-            <button className="btn-primary" disabled={saving} onClick={createCohort}><Plus size={16}/> Initialize Cohort</button>
-          </div>
-
-          <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Cohort</th>
-                  <th>Track & Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cohorts.map((cohort) => (
-                  <tr key={cohort.id} style={{ cursor: 'pointer', background: String(selectedCohortId) === String(cohort.id) ? 'var(--color-bg-tertiary)' : 'transparent' }} onClick={() => {
-                    setSelectedCohortId(String(cohort.id));
-                    setMemberForm((prev) => ({ ...prev, cohort_id: String(cohort.id) }));
-                  }}>
-                    <td>
-                      <strong style={{ display: 'block', color: 'var(--color-primary)' }}>{cohort.name}</strong>
-                      <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{cohort.program_name || "-"}</span>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>{cohort.track}</div>
-                      <span className={`badge ${cohort.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{cohort.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className="internship-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-        <div className="glass-panel">
-          <div className="glass-header">
-            <h3><Users size={18}/> Cohort Roster {selectedCohort ? `(${selectedCohort.name})` : ''}</h3>
-          </div>
-          <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-              <Select value={memberForm.cohort_id} onChange={(e) => {
-                setMemberForm((prev) => ({ ...prev, cohort_id: e.target.value }));
-                setSelectedCohortId(e.target.value);
-              }}>
-                <option value="">Select Cohort</option>
-                {cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}
-              </Select>
-              <Select value={memberForm.person_id} onChange={(e) => setMemberForm((prev) => ({ ...prev, person_id: e.target.value }))}>
-                <option value="">Select Candidate...</option>
-                {internCandidates.map((person) => <option key={person.id} value={person.id}>{person.full_name}</option>)}
-              </Select>
-              <Select value={memberForm.role} onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value }))}>
-                {metadata.cohort_member_roles.map((role) => <option key={role} value={role}>{role}</option>)}
-              </Select>
-            </div>
-            <button className="btn-primary" disabled={saving || !memberForm.cohort_id || !memberForm.person_id} onClick={addMember}><Plus size={16}/> Enlist Member</button>
-          </div>
-
-          <div className="table-responsive" style={{ marginTop: '1.5rem' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Identity</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.length === 0 ? <tr><td colSpan={3} className="text-muted" style={{ textAlign: 'center', padding: '1rem' }}>Empty Roster.</td></tr> : members.map((member) => (
-                  <tr key={member.id}>
-                    <td>
-                      <strong style={{ display: 'block', color: 'var(--color-text-primary)' }}>{member.person_name}</strong>
-                      <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{member.person_email}</span>
-                    </td>
-                    <td>{member.role}</td>
-                    <td><button className="btn-glass-danger" disabled={saving} onClick={() => removeMember(member)}>Evict</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="glass-panel">
-          <div className="glass-header">
-             <h3><CheckCircle size={18}/> Onboarding Templates</h3>
+             <h3><CheckCircle size={18}/> Global Onboarding Templates</h3>
           </div>
           <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
@@ -350,7 +360,33 @@ export default function InternshipProgram() {
             ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'analytics' && (
+        <div className="glass-panel">
+          <div className="glass-header">
+             <h3><BarChart2 size={18}/> Cohort Analytics & Performance</h3>
+          </div>
+          {analyticsData.length === 0 ? (
+             <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
+               <p className="text-muted">No analytics data available yet. Build out cohorts to populate stats.</p>
+             </div>
+          ) : (
+             <div style={{ height: '400px', marginTop: '2rem' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analyticsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#273a5d" vertical={false} />
+                    <XAxis dataKey="cohort_name" stroke="#8a9cba" />
+                    <YAxis stroke="#8a9cba" />
+                    <Tooltip contentStyle={{ backgroundColor: '#070d1a', borderColor: '#273a5d', color: '#fff' }} />
+                    <Bar dataKey="retention_rate_pct" name="Retention Rate %" fill="#2ad2ff" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="payment_compliance_pct" name="Payment Compliance %" fill="#24c783" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+             </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

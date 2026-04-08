@@ -27,6 +27,11 @@ const EMPTY_FORM = {
   manager_person_id: "",
   mentor_person_id: "",
   start_date: "",
+  compensation_type: "salary",
+  currency: "USD",
+  salary_amount: "",
+  contract_signed_date: "",
+  payment_status: "pending",
   notes: "",
 };
 
@@ -294,7 +299,7 @@ export default function People() {
                   <tr>
                     <th>Person</th>
                     <th>Role & Dept</th>
-                    <th>Status</th>
+                    <th>Status & Pay</th>
                     <th>Manager</th>
                     <th>Actions</th>
                   </tr>
@@ -318,10 +323,17 @@ export default function People() {
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>{person.department || person.team || "Unassigned"}</div>
                       </td>
                       <td>
-                        {person.active_employment?.status === "active" ? (
-                           <span className="badge badge-success">Active</span>
-                        ) : (
-                           <span className="badge badge-neutral">{person.active_employment?.status || "Inactive"}</span>
+                        <div style={{ marginBottom: '0.25rem' }}>
+                          {person.active_employment?.status === "active" ? (
+                             <span className="badge badge-success">Active</span>
+                          ) : (
+                             <span className="badge badge-neutral">{person.active_employment?.status || "Inactive"}</span>
+                          )}
+                        </div>
+                        {person.active_employment?.payment_status && (
+                          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+                            Pay: {person.active_employment.payment_status}
+                          </div>
                         )}
                       </td>
                       <td>{person.active_employment?.manager_name || "-"}</td>
@@ -369,6 +381,19 @@ export default function People() {
           </Select>
           <Input label="Title" value={formData.title} onChange={(e) => setFormData((f) => ({ ...f, title: e.target.value }))} />
           <Input label="Start Date" type="date" value={formData.start_date} onChange={(e) => setFormData((f) => ({ ...f, start_date: e.target.value }))} />
+          <Select label="Comp Type" value={formData.compensation_type} onChange={(e) => setFormData((f) => ({ ...f, compensation_type: e.target.value }))}>
+            <option value="salary">Salary</option>
+            <option value="hourly">Hourly</option>
+            <option value="stipend">Stipend</option>
+            <option value="unpaid">Unpaid</option>
+          </Select>
+          <Input label="Amount" type="number" value={formData.salary_amount} onChange={(e) => setFormData((f) => ({ ...f, salary_amount: e.target.value }))} />
+          <Input label="Contract Date" type="date" value={formData.contract_signed_date} onChange={(e) => setFormData((f) => ({ ...f, contract_signed_date: e.target.value }))} />
+          <Select label="Payment Status" value={formData.payment_status} onChange={(e) => setFormData((f) => ({ ...f, payment_status: e.target.value }))}>
+            <option value="pending">Pending</option>
+            <option value="cleared">Cleared</option>
+            <option value="paid">Paid</option>
+          </Select>
           <Input label="Notes" value={formData.notes} onChange={(e) => setFormData((f) => ({ ...f, notes: e.target.value }))} />
         </div>
       </Modal>

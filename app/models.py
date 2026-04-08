@@ -1217,6 +1217,15 @@ class Employment(db.Model):
     title = db.Column(db.String(120), nullable=True)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
+    compensation_type = db.Column(db.String(50), nullable=True)
+    salary_amount = db.Column(db.Numeric(10, 2), nullable=True)
+    currency = db.Column(db.String(10), nullable=True)
+    contract_signed_date = db.Column(db.Date, nullable=True)
+    payment_status = db.Column(db.String(50), nullable=True)
+    amount_paid = db.Column(db.Numeric(10, 2), nullable=True)
+    amount_outstanding = db.Column(db.Numeric(10, 2), nullable=True)
+    payment_due_date = db.Column(db.Date, nullable=True)
+    payment_frequency = db.Column(db.String(50), nullable=True)
     manager_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
     mentor_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -1241,6 +1250,15 @@ class Employment(db.Model):
             "title": self.title,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
+            "compensation_type": self.compensation_type,
+            "salary_amount": float(self.salary_amount) if self.salary_amount is not None else None,
+            "currency": self.currency,
+            "contract_signed_date": self.contract_signed_date.isoformat() if self.contract_signed_date else None,
+            "payment_status": self.payment_status,
+            "amount_paid": float(self.amount_paid) if self.amount_paid is not None else None,
+            "amount_outstanding": float(self.amount_outstanding) if self.amount_outstanding is not None else None,
+            "payment_due_date": self.payment_due_date.isoformat() if self.payment_due_date else None,
+            "payment_frequency": self.payment_frequency,
             "manager_person_id": self.manager_person_id,
             "manager_name": self.manager.full_name if self.manager else None,
             "mentor_person_id": self.mentor_person_id,
@@ -1346,7 +1364,9 @@ class InternshipCohort(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     program_id = db.Column(db.Integer, db.ForeignKey("internship_program.id"), nullable=False)
     name = db.Column(db.String(150), nullable=False)
+    department = db.Column(db.String(100), nullable=True)
     track = db.Column(db.String(100), nullable=False)
+    specialization = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(20), nullable=False, default="active")
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
@@ -1363,7 +1383,9 @@ class InternshipCohort(db.Model):
             "program_id": self.program_id,
             "program_name": self.program.name if self.program else None,
             "name": self.name,
+            "department": self.department,
             "track": self.track,
+            "specialization": self.specialization,
             "status": self.status,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,

@@ -4,6 +4,7 @@ import api from "../utils/api";
 import Card, { CardHeader, CardBody } from "../components/ui/Card";
 import { RoleBadge } from "../components/ui/Badge";
 import { PageLoader } from "../components/ui/Spinner";
+import dashboardArt from "../assets/dashboard_welcome_art.png";
 import "./Dashboard.css";
 
 const safeGet = (obj, path, defaultValue = 0) => {
@@ -68,10 +69,11 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Welcome back, {user.email?.split("@")[0] || "User"}</p>
+      <div className="welcome-banner">
+        <img src={dashboardArt} alt="Welcome abstract graph" className="welcome-banner-bg" />
+        <div className="welcome-banner-content">
+          <h1 className="welcome-title">Dashboard</h1>
+          <p className="welcome-subtitle">Welcome back, {user.email?.split("@")[0] || "User"}</p>
         </div>
       </div>
 

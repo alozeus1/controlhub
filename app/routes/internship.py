@@ -335,7 +335,9 @@ def create_cohort():
     cohort = InternshipCohort(
         program_id=program_id,
         name=name,
+        department=data.get("department"),
         track=track,
+        specialization=data.get("specialization"),
         status=data.get("status", "active"),
         start_date=start_date,
         end_date=end_date,
@@ -365,7 +367,7 @@ def update_cohort(cohort_id):
     actor = request.current_user
     cohort = InternshipCohort.query.get_or_404(cohort_id)
     data = request.get_json() or {}
-    allowed_fields = {"name", "track", "status", "start_date", "end_date"}
+    allowed_fields = {"name", "department", "track", "specialization", "status", "start_date", "end_date"}
     unexpected = sorted(set(data.keys()) - allowed_fields)
     if unexpected:
         return _validation_error([f"Unexpected fields: {', '.join(unexpected)}"])
@@ -393,10 +395,10 @@ def update_cohort(cohort_id):
             changes["end_date"] = {"from": cohort.end_date.isoformat() if cohort.end_date else None, "to": parsed.isoformat() if parsed else None}
             cohort.end_date = parsed
 
-    for field in ("name", "track", "status"):
+    for field in ("name", "track", "status", "department", "specialization"):
         if field in data:
             value = data[field]
-            if field in {"name", "track"} and isinstance(value, str):
+            if field in {"name", "track", "department", "specialization"} and isinstance(value, str):
                 value = value.strip()
             if getattr(cohort, field) != value:
                 changes[field] = {"from": getattr(cohort, field), "to": value}
@@ -833,3 +835,65 @@ def issue_person_certificate(person_id):
 
     certificate = _issue_certificate(person, actor, pdf_url=data.get("pdf_url"))
     return jsonify({"message": "Certificate issued", "certificate": certificate.to_dict()}), 201
+
+@internship_bp.get("/internship/cohort-analysis")
+@require_role("viewer")
+def cohort_analysis():
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    from app.models import Person, Employment
+    
+    # We will build batch analytics focusing on Cohort performance and retention
+    # This combines InternshipCohort, InternshipCohortMember
+    cohorts = InternshipCohort.query.all()
+    results = []
+    for c in cohorts:
+        members = InternshipCohortMember.query.filter_by(cohort_id=c.id).all()
+        total_interns = len(members)
+        if total_interns == 0:
+            continue
+            
+        active_interns = sum(1 for m in members if m.person.active_employment and m.person.active_employment.status == "active")
+        withdrawn = sum(1 for m in members if m.person.active_employment and m.person.active_employment.status in ("terminated", "withdrawn"))
+        completed = sum(1 for m in members if m.person.active_employment and m.person.active_employment.status == "completed")
+        
+        retention = round((active_interns + completed) / total_interns * 100, 1) if total_interns > 0 else 0
+        
+        # Calculate payment compliance
+        paid_ok = 0
+        total_stipend_amt = 0
+        for m in members:
+            emp = m.person.active_employment
+            if emp:
+                if emp.payment_status in ("paid", "cleared"):
+                    paid_ok += 1
+                if emp.salary_amount:
+                    total_stipend_amt += float(emp.salary_amount)
+                    
+        payment_compliance = round(paid_ok / total_interns * 100, 1) if total_interns > 0 else 0
+                    
+        # Check-ins count
+        total_checkins = 0
+        from app.models import PerformanceCheckin
+        for m in members:
+            total_checkins += PerformanceCheckin.query.filter_by(person_id=m.person_id).count()
+
+        results.append({
+            "cohort_id": c.id,
+            "cohort_name": c.name,
+            "department": c.department,
+            "specialization": c.specialization,
+            "program_id": c.program_id,
+            "total_interns": total_interns,
+            "active_interns": active_interns,
+            "withdrawn_interns": withdrawn,
+            "completed_interns": completed,
+            "retention_rate_pct": retention,
+            "payment_compliance_pct": payment_compliance,
+            "total_checkins": total_checkins,
+            "average_completion": round((completed / total_interns) * 100, 1) if total_interns > 0 else 0
+        })
+
+    return jsonify({"cohort_analytics": results})

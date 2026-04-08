@@ -56,6 +56,15 @@ export default function PersonDetail() {
     title: "",
     start_date: "",
     end_date: "",
+    compensation_type: "",
+    salary_amount: "",
+    currency: "USD",
+    contract_signed_date: "",
+    payment_status: "pending",
+    amount_paid: "",
+    amount_outstanding: "",
+    payment_due_date: "",
+    payment_frequency: "",
     manager_person_id: "",
     mentor_person_id: "",
     notes: "",
@@ -80,6 +89,15 @@ export default function PersonDetail() {
       title: emp.title || "",
       start_date: emp.start_date || "",
       end_date: emp.end_date || "",
+      compensation_type: emp.compensation_type || "",
+      salary_amount: emp.salary_amount !== null ? emp.salary_amount : "",
+      currency: emp.currency || "USD",
+      contract_signed_date: emp.contract_signed_date || "",
+      payment_status: emp.payment_status || "pending",
+      amount_paid: emp.amount_paid !== null ? emp.amount_paid : "",
+      amount_outstanding: emp.amount_outstanding !== null ? emp.amount_outstanding : "",
+      payment_due_date: emp.payment_due_date || "",
+      payment_frequency: emp.payment_frequency || "",
       manager_person_id: emp.manager_person_id || "",
       mentor_person_id: emp.mentor_person_id || "",
       notes: emp.notes || "",
@@ -255,6 +273,49 @@ export default function PersonDetail() {
                <Button variant="primary" loading={saving} onClick={handleSaveEmployment} style={{ marginTop: '0.5rem' }}>Save Employment</Button>
             </div>
           </div>
+
+          {(activeEmployment || true) && (
+            <div className="glass-panel">
+              <div className="glass-header"><h3><FileText size={18}/> Comp & Contracts</h3></div>
+              <div className="person-form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                   <Select label="Comp Type" value={employmentForm.compensation_type} onChange={(e) => setEmploymentForm((f) => ({ ...f, compensation_type: e.target.value }))}>
+                     <option value="">Unpaid</option>
+                     <option value="salary">Salary</option>
+                     <option value="stipend">Stipend</option>
+                     <option value="hourly">Hourly</option>
+                   </Select>
+                   <Select label="Currency" value={employmentForm.currency} onChange={(e) => setEmploymentForm((f) => ({ ...f, currency: e.target.value }))}>
+                     <option value="USD">USD ($)</option>
+                     <option value="EUR">EUR (€)</option>
+                     <option value="GBP">GBP (£)</option>
+                   </Select>
+                 </div>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                   <Input label="Amount" type="number" value={employmentForm.salary_amount} onChange={(e) => setEmploymentForm((f) => ({ ...f, salary_amount: e.target.value }))} />
+                   <Select label="Frequency" value={employmentForm.payment_frequency} onChange={(e) => setEmploymentForm((f) => ({ ...f, payment_frequency: e.target.value }))}>
+                     <option value="">N/A</option>
+                     <option value="weekly">Weekly</option>
+                     <option value="bi-weekly">Bi-weekly</option>
+                     <option value="monthly">Monthly</option>
+                   </Select>
+                 </div>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                   <Input label="Contract Signed" type="date" value={employmentForm.contract_signed_date || ""} onChange={(e) => setEmploymentForm((f) => ({ ...f, contract_signed_date: e.target.value }))} />
+                   <Select label="Payment Status" value={employmentForm.payment_status} onChange={(e) => setEmploymentForm((f) => ({ ...f, payment_status: e.target.value }))}>
+                     <option value="pending">Pending</option>
+                     <option value="cleared">Cleared</option>
+                     <option value="overdue">Overdue</option>
+                   </Select>
+                 </div>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                   <Input label="Amount Paid" type="number" value={employmentForm.amount_paid} onChange={(e) => setEmploymentForm((f) => ({ ...f, amount_paid: e.target.value }))} />
+                   <Input label="Outstanding" type="number" value={employmentForm.amount_outstanding} onChange={(e) => setEmploymentForm((f) => ({ ...f, amount_outstanding: e.target.value }))} />
+                 </div>
+                 <Button variant="primary" loading={saving} onClick={handleSaveEmployment} style={{ marginTop: '0.5rem' }}>Update Contracts</Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Column 2: Progress & Performance Check-ins */}

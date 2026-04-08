@@ -77,6 +77,15 @@ def _employment_snapshot(emp: Employment):
         "title": emp.title,
         "start_date": emp.start_date.isoformat() if emp.start_date else None,
         "end_date": emp.end_date.isoformat() if emp.end_date else None,
+        "compensation_type": emp.compensation_type,
+        "salary_amount": float(emp.salary_amount) if emp.salary_amount is not None else None,
+        "currency": emp.currency,
+        "contract_signed_date": emp.contract_signed_date.isoformat() if emp.contract_signed_date else None,
+        "payment_status": emp.payment_status,
+        "amount_paid": float(emp.amount_paid) if emp.amount_paid is not None else None,
+        "amount_outstanding": float(emp.amount_outstanding) if emp.amount_outstanding is not None else None,
+        "payment_due_date": emp.payment_due_date.isoformat() if emp.payment_due_date else None,
+        "payment_frequency": emp.payment_frequency,
         "manager_person_id": emp.manager_person_id,
         "mentor_person_id": emp.mentor_person_id,
         "notes": emp.notes,
@@ -143,10 +152,10 @@ def _apply_people_filters(query):
     return query
 
 
-def _export_people_csv(rows):
+def _export_people_csv(rows, include_compensation=False):
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
+    headers = [
         "person_id",
         "full_name",
         "email",
@@ -162,10 +171,13 @@ def _export_people_csv(rows):
         "mentor",
         "start_date",
         "end_date",
-    ])
+    ]
+    if include_compensation:
+        headers.extend(["compensation_type", "salary_amount", "currency", "contract_signed_date", "payment_status", "amount_paid", "amount_outstanding"])
+    writer.writerow(headers)
     for person in rows:
         emp = person.active_employment
-        writer.writerow([
+        row_data = [
             person.id,
             person.full_name,
             person.email,
@@ -181,7 +193,18 @@ def _export_people_csv(rows):
             emp.mentor.full_name if (emp and emp.mentor) else "",
             emp.start_date.isoformat() if (emp and emp.start_date) else "",
             emp.end_date.isoformat() if (emp and emp.end_date) else "",
-        ])
+        ]
+        if include_compensation:
+            row_data.extend([
+                emp.compensation_type if emp else "",
+                float(emp.salary_amount) if (emp and emp.salary_amount is not None) else "",
+                emp.currency if emp else "",
+                emp.contract_signed_date.isoformat() if (emp and emp.contract_signed_date) else "",
+                emp.payment_status if emp else "",
+                float(emp.amount_paid) if (emp and emp.amount_paid is not None) else "",
+                float(emp.amount_outstanding) if (emp and emp.amount_outstanding is not None) else "",
+            ])
+        writer.writerow(row_data)
     return output.getvalue()
 
 
@@ -239,9 +262,22 @@ def get_person(person_id):
         return error
 
     person = Person.query.get_or_404(person_id)
+    actor = request.current_user
+    allowed_manage, _ = can_manage_person(actor, person)
+    show_compensation = is_hr_admin(actor) or allowed_manage or actor.id == person.user_id
+
+    emp_history = []
+    for e in sorted(person.employments, key=lambda x: x.created_at or datetime.min, reverse=True):
+        e_dict = e.to_dict()
+        if not show_compensation:
+            # Mask sensitive compensation fields
+            for f in ["salary_amount", "amount_paid", "amount_outstanding"]:
+                e_dict[f] = None
+        emp_history.append(e_dict)
+
     return jsonify({
         "person": person.to_dict(),
-        "employment_history": [e.to_dict() for e in sorted(person.employments, key=lambda x: x.created_at or datetime.min, reverse=True)],
+        "employment_history": emp_history,
     })
 
 
@@ -419,6 +455,15 @@ def update_employment(person_id):
         "title",
         "start_date",
         "end_date",
+        "compensation_type",
+        "salary_amount",
+        "currency",
+        "contract_signed_date",
+        "payment_status",
+        "amount_paid",
+        "amount_outstanding",
+        "payment_due_date",
+        "payment_frequency",
         "manager_person_id",
         "mentor_person_id",
         "notes",
@@ -476,6 +521,30 @@ def update_employment(person_id):
             employment.end_date = _parse_date(data.get("end_date"), "end_date")
         except ValueError as exc:
             return _validation_error([str(exc)])
+    if "contract_signed_date" in data:
+        try:
+            employment.contract_signed_date = _parse_date(data.get("contract_signed_date"), "contract_signed_date")
+        except ValueError as exc:
+            return _validation_error([str(exc)])
+    if "payment_due_date" in data:
+        try:
+            employment.payment_due_date = _parse_date(data.get("payment_due_date"), "payment_due_date")
+        except ValueError as exc:
+            return _validation_error([str(exc)])
+            
+    for f in ["compensation_type", "salary_amount", "currency", "payment_status", "amount_paid", "amount_outstanding", "payment_frequency"]:
+        if f in data:
+            if "amount" in f or "salary" in f:
+                val = data[f]
+                if val in ("", None):
+                    setattr(employment, f, None)
+                else:
+                    try:
+                        setattr(employment, f, float(val))
+                    except ValueError:
+                        return _validation_error([f"{f} must be a valid number"])
+            else:
+                setattr(employment, f, data[f])
 
     employment.updated_by_id = actor.id
     after = _employment_snapshot(employment)
@@ -714,7 +783,8 @@ def export_people_csv():
             }), 202
 
     rows = _apply_people_filters(_base_people_query()).order_by(Person.created_at.desc()).all()
-    csv_data = _export_people_csv(rows)
+    include_compensation = is_hr_admin(actor) or actor.role == "superadmin"
+    csv_data = _export_people_csv(rows, include_compensation=include_compensation)
     log_action(
         action="people.exported",
         actor=actor,
