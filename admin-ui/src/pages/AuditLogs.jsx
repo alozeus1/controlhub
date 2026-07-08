@@ -6,6 +6,7 @@ import Pagination from "../components/ui/Pagination";
 import { PageLoader } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import api from "../utils/api";
+import { formatDateTime } from "../utils/datetime";
 import "./AuditLogs.css";
 
 const actionColors = {
@@ -63,10 +64,7 @@ export default function AuditLogs() {
     fetchLogs(1);
   }, [filters]);
 
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString();
-  };
+  const formatDate = (dateStr) => formatDateTime(dateStr);
 
   return (
     <div className="audit-logs-page">

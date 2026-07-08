@@ -73,7 +73,9 @@ async function request(method, path, body = null, retry = true, requestOptions =
   const headers = Object.fromEntries(res.headers.entries());
 
   if (!res.ok) {
-    throw new ApiError(data?.error || "Request failed", { data, status: res.status, headers });
+    // Surface validation details so users see WHAT failed, not just "Validation failed"
+    const details = Array.isArray(data?.details) && data.details.length ? `: ${data.details.join("; ")}` : "";
+    throw new ApiError(`${data?.error || "Request failed"}${details}`, { data, status: res.status, headers });
   }
 
   return { data, status: res.status, headers };

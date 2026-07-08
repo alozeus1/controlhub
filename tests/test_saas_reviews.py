@@ -346,3 +346,43 @@ def test_finalize_milestone_respects_governance_policy(client, reviews_setup, au
         assert review.final_decision == "convert"
         person = Person.query.get(person_id)
         assert person.active_employment.employment_type == "full_time"
+
+
+def test_draft_approval_can_be_revoked(client, reviews_setup, auth_header, app):
+    admin_id, manager_id, intern_user_id, person_id = reviews_setup
+
+    with app.app_context():
+        mgr = User.query.get(manager_id)
+        mgr_headers = auth_header(mgr)
+
+    res = client.post("/admin/internship/reviews/milestone/compile", json={
+        "person_id": person_id, "review_type": "3_month"
+    }, headers=mgr_headers)
+    review_id = res.json["review"]["id"]
+
+    res = client.post(f"/admin/internship/reviews/milestone/{review_id}/approve-ai", headers=mgr_headers)
+    assert res.status_code == 200
+    assert res.json["review"]["ai_recommendations_approved"] is True
+
+    # Manager reconsiders: revoke while still a draft
+    res = client.post(f"/admin/internship/reviews/milestone/{review_id}/approve-ai",
+                      json={"approved": False}, headers=mgr_headers)
+    assert res.status_code == 200
+    assert res.json["review"]["ai_recommendations_approved"] is False
+
+    # Finalize is blocked again after revocation
+    res = client.post(f"/admin/internship/reviews/milestone/{review_id}/finalize", json={
+        "decision": "convert"
+    }, headers=mgr_headers)
+    assert res.status_code == 400
+
+    # Re-approve and finalize; approval is then immutable
+    client.post(f"/admin/internship/reviews/milestone/{review_id}/approve-ai", headers=mgr_headers)
+    res = client.post(f"/admin/internship/reviews/milestone/{review_id}/finalize", json={
+        "decision": "extend"
+    }, headers=mgr_headers)
+    assert res.status_code == 200
+
+    res = client.post(f"/admin/internship/reviews/milestone/{review_id}/approve-ai",
+                      json={"approved": False}, headers=mgr_headers)
+    assert res.status_code == 400

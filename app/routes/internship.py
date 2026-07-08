@@ -610,7 +610,16 @@ def update_onboarding_template(item_id):
 
 
 def _build_onboarding_payload(person):
-    templates = OnboardingTemplateItem.query.filter_by(is_active=True).order_by(OnboardingTemplateItem.created_at.asc()).all()
+    # Mirror the initialize filtering: only templates targeting this person's
+    # role count toward the radar, so creating a template for another role
+    # doesn't drop everyone's progress percentage.
+    employment = person.active_employment
+    employment_type = employment.employment_type if employment else "intern"
+    role_key = "intern" if employment_type == "intern" else "employee"
+    templates = [
+        t for t in OnboardingTemplateItem.query.filter_by(is_active=True).order_by(OnboardingTemplateItem.created_at.asc()).all()
+        if t.role_target in (role_key, employment_type, "all")
+    ]
     checks = {
         c.template_item_id: c
         for c in PersonOnboardingItem.query.filter_by(person_id=person.id).all()
@@ -1389,19 +1398,30 @@ def approve_ai_milestone_recommendations(review_id):
     if not allowed:
         return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
 
-    milestone.ai_recommendations_approved = True
+    data = request.get_json(silent=True) or {}
+    approved = data.get("approved", True)
+    if not isinstance(approved, bool):
+        return _validation_error(["approved must be a boolean"])
+
+    # Approval can be granted or revoked freely while the review is a draft;
+    # once released the decision is final.
+    if milestone.status == "released":
+        return _validation_error(["This milestone review has already been finalized"])
+
+    milestone.ai_recommendations_approved = approved
     db.session.commit()
-    
+
     log_action(
-        action="internship.review.milestone_ai_approved",
+        action="internship.review.milestone_ai_approved" if approved else "internship.review.milestone_ai_approval_revoked",
         actor=request.current_user,
         target_type="person",
         target_id=milestone.person_id,
         target_label=milestone.person.full_name,
-        details={"milestone_id": milestone.id},
+        details={"milestone_id": milestone.id, "approved": approved},
     )
-    
-    return jsonify({"message": "AI recommendations approved by manager", "review": milestone.to_dict()})
+
+    message = "AI recommendations approved by manager" if approved else "Draft approval revoked"
+    return jsonify({"message": message, "review": milestone.to_dict()})
 
 
 def _finalize_milestone(milestone, decision, actor):

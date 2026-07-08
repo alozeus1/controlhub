@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../utils/api";
+import { formatDate } from "../utils/datetime";
 import Button from "../components/ui/Button";
 import Input, { Select, TextArea } from "../components/ui/Input";
 import Modal, { ConfirmModal } from "../components/ui/Modal";
@@ -298,13 +299,13 @@ export default function PersonDetail() {
     } catch (err) { toast.error(err.message || "Compilation failed"); } finally { setSaving(false); }
   };
 
-  const handleApproveAiMilestone = async (reviewId) => {
+  const handleApproveAiMilestone = async (reviewId, approved = true) => {
     try {
       setSaving(true);
-      await api.post(`/admin/internship/reviews/milestone/${reviewId}/approve-ai`);
-      toast.success("AI draft recommendation approved");
+      await api.post(`/admin/internship/reviews/milestone/${reviewId}/approve-ai`, { approved });
+      toast.success(approved ? "AI draft recommendation approved" : "Draft approval revoked");
       await refresh();
-    } catch (err) { toast.error(err.message || "Approval failed"); } finally { setSaving(false); }
+    } catch (err) { toast.error(err.message || "Approval update failed"); } finally { setSaving(false); }
   };
 
   const handleFinalizeMilestone = async (reviewId, decision) => {
@@ -535,7 +536,7 @@ export default function PersonDetail() {
                    <div key={c.id} style={{ padding: '0.75rem', background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                        <strong style={{ color: 'var(--color-text-primary)' }}>{c.summary}</strong>
-                       <small className="text-muted">{new Date(c.created_at).toLocaleDateString()}</small>
+                       <small className="text-muted">{formatDate(c.created_at)}</small>
                      </div>
                      <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>{c.notes || "-"}</p>
                    </div>
@@ -620,9 +621,14 @@ export default function PersonDetail() {
                       <div style={{ background: 'var(--color-bg-primary)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--color-primary)', marginBottom: '0.5rem' }}>
                         <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>AI Recommendation:</div>
                         <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: 0 }}>{m.ai_recommendations}</p>
-                        {!m.ai_recommendations_approved && (
-                          <button className="btn-glass" style={{ fontSize: '10px', padding: '2px 6px', marginTop: '4px' }} onClick={() => handleApproveAiMilestone(m.id)}>
+                        {!m.ai_recommendations_approved && m.status === 'draft' && (
+                          <button className="btn-glass" style={{ fontSize: '10px', padding: '2px 6px', marginTop: '4px' }} onClick={() => handleApproveAiMilestone(m.id, true)}>
                             Approve Draft Recommendation
+                          </button>
+                        )}
+                        {m.ai_recommendations_approved && m.status === 'draft' && (
+                          <button className="btn-glass" style={{ fontSize: '10px', padding: '2px 6px', marginTop: '4px' }} onClick={() => handleApproveAiMilestone(m.id, false)}>
+                            Revoke Approval
                           </button>
                         )}
                       </div>
@@ -701,7 +707,7 @@ export default function PersonDetail() {
                  <h4 className="text-muted" style={{ marginBottom: '0.5rem', fontSize: 'var(--font-size-sm)' }}>Recent Audits</h4>
                  {auditLogs.slice(0, 3).map((log) => (
                     <div key={log.id} style={{ fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
-                      <span style={{ color: 'var(--color-text-secondary)' }}>{new Date(log.created_at).toLocaleDateString()}:</span> {log.action}
+                      <span style={{ color: 'var(--color-text-secondary)' }}>{formatDate(log.created_at)}:</span> {log.action}
                     </div>
                  ))}
                </div>
