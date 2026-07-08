@@ -299,4 +299,49 @@ CI note:
 - Set `PRESIGNED_URL_EXPIRY` to a short value (default: `300` seconds).
 - In production, `SECRET_KEY`, `JWT_SECRET_KEY`, `SQLALCHEMY_DATABASE_URI`, and `SECRET_ENCRYPTION_KEYS` must be configured.
 
+## Academy & Internship Hub (SaaS Org Management)
+
+ControlHub has been evolved to include a comprehensive SaaS-style organization management module:
+
+- **Unified Onboarding**: One-click checklist initialization from active templates with per-item owners and due dates. Initialization applies templates whose `role_target` matches the person's employment type (`intern` vs `employee`, or `all`).
+- **Biweekly Reflections & Reviews**: Structured progress checks where interns submit self-reflections, and managers grade performance (1-5), detail blockers, and set action items.
+- **AI-Assisted Summaries**: Behind-the-scenes draft review compilation using AI, featuring human-in-the-loop approvals.
+- **Milestone Scorecards**: High-fidelity 3-month and 6-month scorecard compilation incorporating average biweekly grades, onboarding completeness, and integration activity telemetry.
+- **Integration Mocks**:
+  - **Taiga**: Mock activity indicators tracking ticket counts and participation velocity.
+  - **Mattermost**: In-app webhook alerts for overdue reviews, onboarding milestones, and approvals.
+  - **Email**: Transactional email delivery alerts.
+
+### Integration environment flags
+
+The Taiga/Mattermost/Email providers in `app/utils/integrations_mock.py` are mocks by default. They read these (currently unset) config flags and fall back to mock mode when absent, so no credentials are required in dev/test:
+
+- `TAIGA_API_ENABLED` — reserved for a future real Taiga sync
+- `MATTERMOST_API_ENABLED` — reserved for a future real Mattermost webhook
+- `EMAIL_NOTIFICATIONS_ENABLED` — reserved for a future Resend/Flask-Mail sender
+
+Every mock notification/fetch attempt is written to the audit log (`integration.taiga.activity_fetched`, `integration.mattermost.notify`, `integration.email.send`) with a `mocked` marker in the details.
+
+### RBAC notes for reviews & onboarding
+
+- Biweekly/milestone review reads and writes are scoped: HR admins/admins see everything; `people_manager`/`mentor` only their direct reports; other users only their own linked person profile.
+- Interns submit biweekly self-reflections through `POST /admin/internship/reviews/biweekly/<id>/intern-submit` (any authenticated active user, own profile only). Intern accounts (role `user`) cannot access the other admin listing endpoints or the admin UI.
+- AI summaries/recommendations are draft-only. A milestone decision requires the draft recommendation to be explicitly approved first, then a human `finalize` call; released reviews cannot be re-finalized. An active governance policy on `people.finalize_milestone` additionally routes finalization through the approval queue.
+
+### Seeding Demo Data
+
+To populate the database with realistic cohorts, biweekly reviews, onboarding checklist progress, and milestone scorecard drafts:
+
+```bash
+# Via Docker
+docker compose exec api python scripts/seed_demo_data.py
+
+# Local development
+python scripts/seed_demo_data.py
+```
+
+> **Warning:** the seed script clears the onboarding, employment, and review tables before seeding. It refuses to run when `ENVIRONMENT=production` (override with `SEED_DEMO_FORCE=1`).
+
+Seeded demo accounts (all fake, `example.com` addresses): `admin@example.com` / `Admin123!` (created only if no admin exists), `manager@example.com` / `Manager123!`, `mentor@example.com` / `Mentor123!`, and `intern1..3@example.com` (`Intern123!`; intern3 uses `Bob1234!`).
+
 This README helps new developers spin up the system and understand the module layout quickly.

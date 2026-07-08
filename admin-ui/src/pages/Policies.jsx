@@ -74,7 +74,6 @@ export default function Policies() {
 
   useEffect(() => {
     fetchPolicies(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async () => {

@@ -82,7 +82,6 @@ export default function Approvals() {
 
   useEffect(() => {
     fetchApprovals(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   const openDecisionModal = (approval, type) => {

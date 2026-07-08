@@ -38,30 +38,26 @@ export default function InternshipProgram() {
   const selectedCohort = useMemo(() => cohorts.find(item => String(item.id) === String(selectedCohortId)), [cohorts, selectedCohortId]);
 
   const loadBaseData = useCallback(async () => {
-    try {
-      const [metaRes, programsRes, cohortsRes, templatesRes, peopleRes, analyticsRes] = await Promise.all([
-        api.get("/admin/internship/metadata"),
-        api.get("/admin/internship/programs?page=1&page_size=100"),
-        api.get("/admin/internship/cohorts?page=1&page_size=100"),
-        api.get("/admin/internship/onboarding/templates"),
-        api.get("/admin/people?employment_type=intern&page=1&page_size=200"),
-        api.get("/admin/internship/cohort-analysis").catch(() => ({ data: { cohort_analytics: [] } }))
-      ]);
+    const [metaRes, programsRes, cohortsRes, templatesRes, peopleRes, analyticsRes] = await Promise.all([
+      api.get("/admin/internship/metadata"),
+      api.get("/admin/internship/programs?page=1&page_size=100"),
+      api.get("/admin/internship/cohorts?page=1&page_size=100"),
+      api.get("/admin/internship/onboarding/templates"),
+      api.get("/admin/people?employment_type=intern&page=1&page_size=200"),
+      api.get("/admin/internship/cohort-analysis").catch(() => ({ data: { cohort_analytics: [] } }))
+    ]);
 
-      setMetadata(metaRes.data || {});
-      setPrograms(programsRes.data.items || []);
-      setCohorts(cohortsRes.data.items || []);
-      setTemplates(templatesRes.data.items || []);
-      setInternCandidates(peopleRes.data.items || []);
-      setAnalyticsData(analyticsRes.data.cohort_analytics || []);
+    setMetadata(metaRes.data || {});
+    setPrograms(programsRes.data.items || []);
+    setCohorts(cohortsRes.data.items || []);
+    setTemplates(templatesRes.data.items || []);
+    setInternCandidates(peopleRes.data.items || []);
+    setAnalyticsData(analyticsRes.data.cohort_analytics || []);
 
-      if (!selectedCohortId && (cohortsRes.data.items || []).length > 0) {
-        const first = cohortsRes.data.items[0];
-        setSelectedCohortId(String(first.id));
-        setMemberForm(prev => ({ ...prev, cohort_id: String(first.id) }));
-      }
-    } catch (err) {
-      throw err;
+    if (!selectedCohortId && (cohortsRes.data.items || []).length > 0) {
+      const first = cohortsRes.data.items[0];
+      setSelectedCohortId(String(first.id));
+      setMemberForm(prev => ({ ...prev, cohort_id: String(first.id) }));
     }
   }, [selectedCohortId]);
 

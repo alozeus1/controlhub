@@ -149,7 +149,6 @@ export default function Uploads() {
   useEffect(() => {
     fetchUploads(1, search);
     fetchStorageStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileSelect = async (files) => {

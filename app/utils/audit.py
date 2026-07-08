@@ -10,15 +10,21 @@ from app.models import AuditLog, User
 
 def get_client_ip():
     """Get client IP address, handling proxies."""
-    if request.headers.get("X-Forwarded-For"):
-        return request.headers.get("X-Forwarded-For").split(",")[0].strip()
-    return request.remote_addr
+    try:
+        if request.headers.get("X-Forwarded-For"):
+            return request.headers.get("X-Forwarded-For").split(",")[0].strip()
+        return request.remote_addr
+    except RuntimeError:
+        return "127.0.0.1"
 
 
 def get_user_agent():
     """Get user agent string, truncated to 255 chars."""
-    ua = request.headers.get("User-Agent", "")
-    return ua[:255] if ua else None
+    try:
+        ua = request.headers.get("User-Agent", "")
+        return ua[:255] if ua else None
+    except RuntimeError:
+        return None
 
 
 def log_action(

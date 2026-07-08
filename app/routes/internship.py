@@ -17,10 +17,12 @@ from app.models import (
     OnboardingTemplateItem,
     Person,
     PersonOnboardingItem,
+    BiweeklyReview,
+    MilestoneReview,
 )
 from app.utils.audit import log_action
 from app.utils.people_rbac import can_manage_person, is_hr_admin
-from app.utils.rbac import require_role
+from app.utils.rbac import require_role, require_active_user
 
 
 internship_bp = Blueprint("internship", __name__)
@@ -547,6 +549,9 @@ def create_onboarding_template():
         title=title,
         description=data.get("description"),
         is_active=bool(data.get("is_active", True)),
+        role_target=data.get("role_target", "intern"),
+        owner_role=data.get("owner_role", "intern"),
+        days_to_complete=int(data.get("days_to_complete", 7)),
         created_by_id=actor.id,
     )
     db.session.add(item)
@@ -573,7 +578,7 @@ def update_onboarding_template(item_id):
     actor = request.current_user
     item = OnboardingTemplateItem.query.get_or_404(item_id)
     data = request.get_json() or {}
-    allowed_fields = {"title", "description", "is_active"}
+    allowed_fields = {"title", "description", "is_active", "role_target", "owner_role", "days_to_complete"}
     unexpected = sorted(set(data.keys()) - allowed_fields)
     if unexpected:
         return _validation_error([f"Unexpected fields: {', '.join(unexpected)}"])
@@ -630,11 +635,16 @@ def get_person_onboarding(person_id):
         if checked:
             done += 1
         items.append({
+            "id": check.id if check else None,
             "template_item_id": template.id,
             "title": template.title,
             "description": template.description,
             "checked": checked,
             "checked_at": check.checked_at.isoformat() if (check and check.checked_at) else None,
+            "due_date": check.due_date.isoformat() if (check and check.due_date) else None,
+            "status": check.status if check else "pending",
+            "item_type": check.item_type if check else "general",
+            "owner_role": template.owner_role,
             "updated_at": check.updated_at.isoformat() if check else None,
             "updated_by_id": check.updated_by_id if check else None,
         })
@@ -837,7 +847,7 @@ def issue_person_certificate(person_id):
     return jsonify({"message": "Certificate issued", "certificate": certificate.to_dict()}), 201
 
 @internship_bp.get("/internship/cohort-analysis")
-@require_role("viewer")
+@require_role("people_manager")
 def cohort_analysis():
     error = check_feature_enabled()
     if error:
@@ -863,15 +873,11 @@ def cohort_analysis():
         
         # Calculate payment compliance
         paid_ok = 0
-        total_stipend_amt = 0
         for m in members:
             emp = m.person.active_employment
-            if emp:
-                if emp.payment_status in ("paid", "cleared"):
-                    paid_ok += 1
-                if emp.salary_amount:
-                    total_stipend_amt += float(emp.salary_amount)
-                    
+            if emp and emp.payment_status in ("paid", "cleared"):
+                paid_ok += 1
+
         payment_compliance = round(paid_ok / total_interns * 100, 1) if total_interns > 0 else 0
                     
         # Check-ins count
@@ -897,3 +903,572 @@ def cohort_analysis():
         })
 
     return jsonify({"cohort_analytics": results})
+
+
+@internship_bp.post("/internship/people/<int:person_id>/onboarding/initialize")
+@require_role("people_manager")
+def initialize_person_onboarding(person_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    actor = request.current_user
+    person = Person.query.get_or_404(person_id)
+    allowed, reason = _can_update_person_internship(actor, person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    # Fetch active employment to know start date and which templates apply
+    employment = person.active_employment
+    start_date = employment.start_date if (employment and employment.start_date) else datetime.utcnow().date()
+
+    # Only apply active template items targeting this person's role.
+    # People without an employment record default to the intern checklist.
+    employment_type = employment.employment_type if employment else "intern"
+    role_key = "intern" if employment_type == "intern" else "employee"
+    templates = [
+        t for t in OnboardingTemplateItem.query.filter_by(is_active=True).all()
+        if t.role_target in (role_key, employment_type, "all")
+    ]
+    
+    initialized_count = 0
+    from datetime import timedelta
+    for t in templates:
+        existing = PersonOnboardingItem.query.filter_by(person_id=person.id, template_item_id=t.id).first()
+        if not existing:
+            due_date = start_date + timedelta(days=t.days_to_complete)
+            item = PersonOnboardingItem(
+                person_id=person.id,
+                template_item_id=t.id,
+                checked=False,
+                due_date=due_date,
+                status="pending",
+                item_type="general",
+            )
+            db.session.add(item)
+            initialized_count += 1
+            
+    db.session.commit()
+    
+    from app.utils.integrations_mock import send_email_notification
+    send_email_notification(
+        email=person.email,
+        template_type="onboarding_initialized",
+        context={"name": person.full_name, "count": initialized_count}
+    )
+    
+    log_action(
+        action="internship.onboarding_initialized",
+        actor=actor,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"count": initialized_count},
+    )
+    
+    return jsonify({"message": f"Initialized onboarding checklist with {initialized_count} items."}), 201
+
+
+@internship_bp.patch("/internship/onboarding-item/<int:item_id>")
+@require_role("viewer")
+def patch_person_onboarding_item(item_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    actor = request.current_user
+    item = PersonOnboardingItem.query.get_or_404(item_id)
+    person = item.person
+    
+    allowed, reason = _can_update_person_internship(actor, person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+        
+    data = request.get_json() or {}
+
+    if "status" in data and data["status"] not in {"pending", "in_progress", "completed", "overdue"}:
+        return _validation_error(["status must be one of: pending, in_progress, completed, overdue"])
+
+    if "checked" in data:
+        item.checked = bool(data["checked"])
+        item.checked_at = datetime.utcnow() if item.checked else None
+        item.status = "completed" if item.checked else "pending"
+    if "status" in data:
+        item.status = data["status"]
+    if "due_date" in data:
+        try:
+            item.due_date = _parse_date(data["due_date"], "due_date")
+        except ValueError as exc:
+            return _validation_error([str(exc)])
+    if "item_type" in data:
+        item.item_type = data["item_type"]
+        
+    item.updated_by_id = actor.id
+    db.session.commit()
+    
+    log_action(
+        action="internship.onboarding_item_patched",
+        actor=actor,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"item_id": item.id, "checked": item.checked, "status": item.status},
+    )
+    
+    return jsonify({"message": "Onboarding item updated", "item": item.to_dict()})
+
+
+@internship_bp.get("/internship/reviews/biweekly")
+@require_role("viewer")
+def list_biweekly_reviews():
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    actor = request.current_user
+    person_id = request.args.get("person_id", type=int)
+    query = BiweeklyReview.query
+    if person_id:
+        person = Person.query.get_or_404(person_id)
+        if not _can_view_person_internship(actor, person):
+            return jsonify({"error": "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+        query = query.filter(BiweeklyReview.person_id == person_id)
+
+    reviews = query.order_by(BiweeklyReview.period_end.desc()).all()
+    if not person_id:
+        reviews = [r for r in reviews if _can_view_person_internship(actor, r.person)]
+    return jsonify({"items": [r.to_dict() for r in reviews]})
+
+
+@internship_bp.post("/internship/reviews/biweekly")
+@require_role("people_manager")
+def create_biweekly_review():
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    actor = request.current_user
+    data = request.get_json() or {}
+    person_id = data.get("person_id")
+    if not isinstance(person_id, int):
+        return _validation_error(["person_id is required"])
+    person = Person.query.get_or_404(person_id)
+
+    allowed, reason = _can_update_person_internship(actor, person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    try:
+        period_start = _parse_date(data.get("period_start"), "period_start")
+        period_end = _parse_date(data.get("period_end"), "period_end")
+    except ValueError as exc:
+        return _validation_error([str(exc)])
+
+    if not period_start or not period_end:
+        return _validation_error(["period_start and period_end are required (YYYY-MM-DD)"])
+    if period_start > period_end:
+        return _validation_error(["period_start must be on or before period_end"])
+
+    overlapping = BiweeklyReview.query.filter(
+        BiweeklyReview.person_id == person.id,
+        BiweeklyReview.period_start <= period_end,
+        BiweeklyReview.period_end >= period_start,
+    ).first()
+    if overlapping:
+        return _validation_error([
+            f"A biweekly review already exists for an overlapping period ({overlapping.period_start} to {overlapping.period_end})"
+        ])
+
+    track_name = "general"
+    emp = person.active_employment
+    if emp and emp.intern_track:
+        track_name = emp.intern_track
+        
+    manager_questions_by_track = {
+        "software": [
+            "How well did they apply clean code principles in their commits this sprint?",
+            "Are they showing autonomy in debugging issue tasks?",
+            "Ask them: What technical design pattern did they implement recently?"
+        ],
+        "devops": [
+            "Did they verify CI/CD execution pipeline performance?",
+            "How did they handle secret credentials storage safely?",
+            "Ask them: What was the main infrastructure bottleneck they noticed?"
+        ],
+        "devsecops_cybersecurity": [
+            "Did they perform static application safety testing audits?",
+            "Did they review Nginx configuration security headers?",
+            "Ask them: What vulnerability did they locate and mitigate?"
+        ],
+        "ai_ml": [
+            "How did they handle multimodal structured prompts inference?",
+            "Did they evaluate the accuracy/LCP metrics of generated UI?",
+            "Ask them: How did you validate prompt templates locally?"
+        ]
+    }
+    
+    questions = manager_questions_by_track.get(track_name, [
+        "What was their primary contribution during this review period?",
+        "Are they meeting the objectives set in the onboarding roadmap?",
+        "Ask them: What can we do to help clear any current blockers?"
+    ])
+    
+    review = BiweeklyReview(
+        person_id=person.id,
+        period_start=period_start,
+        period_end=period_end,
+        status="pending_intern",
+        manager_questions=questions,
+        intern_responses={},
+        manager_responses={},
+    )
+    
+    db.session.add(review)
+    db.session.commit()
+    
+    from app.utils.integrations_mock import send_mattermost_notification, send_email_notification
+    if person.mattermost_username:
+        send_mattermost_notification(
+            username=person.mattermost_username,
+            template_type="review_reminder",
+            context={}
+        )
+    send_email_notification(
+        email=person.email,
+        template_type="biweekly_reminder",
+        context={"name": person.full_name, "period_start": period_start.isoformat(), "period_end": period_end.isoformat()}
+    )
+    
+    log_action(
+        action="internship.review.biweekly_created",
+        actor=request.current_user,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"review_id": review.id},
+    )
+    
+    return jsonify({"message": "Biweekly review period initialized", "review": review.to_dict()}), 201
+
+
+@internship_bp.post("/internship/reviews/biweekly/<int:review_id>/intern-submit")
+@require_active_user
+def intern_submit_biweekly(review_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    review = BiweeklyReview.query.get_or_404(review_id)
+    actor = request.current_user
+    
+    person = review.person
+    if actor.role not in {"admin", "superadmin", "hr_admin"}:
+        if person.user_id != actor.id:
+            return jsonify({"error": "You can only submit responses for your own profile", "code": "ACCESS_DENIED"}), 403
+
+    if review.status == "completed":
+        return _validation_error(["This review is already completed and can no longer be edited"])
+
+    data = request.get_json() or {}
+    responses = data.get("responses")
+    if not isinstance(responses, dict):
+        return _validation_error(["responses dict is required"])
+        
+    review.intern_responses = responses
+    review.status = "pending_manager"
+    db.session.commit()
+    
+    from app.utils.integrations_mock import send_mattermost_notification, send_email_notification
+    emp = person.active_employment
+    if emp and emp.manager:
+        if emp.manager.mattermost_username:
+            send_mattermost_notification(
+                username=emp.manager.mattermost_username,
+                template_type="manager_task",
+                context={"intern_name": person.full_name}
+            )
+        send_email_notification(
+            email=emp.manager.email,
+            template_type="manager_reminder",
+            context={"intern_name": person.full_name}
+        )
+        
+    log_action(
+        action="internship.review.intern_submitted",
+        actor=actor,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"review_id": review.id},
+    )
+    
+    return jsonify({"message": "Intern responses saved successfully", "review": review.to_dict()})
+
+
+@internship_bp.post("/internship/reviews/biweekly/<int:review_id>/manager-submit")
+@require_role("people_manager")
+def manager_submit_biweekly(review_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    review = BiweeklyReview.query.get_or_404(review_id)
+    actor = request.current_user
+
+    allowed, reason = _can_update_person_internship(actor, review.person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    data = request.get_json() or {}
+    score = data.get("score_progress")
+    if score is None or not isinstance(score, int) or score < 1 or score > 5:
+        return _validation_error(["score_progress must be an integer between 1 and 5"])
+        
+    review.score_progress = score
+    review.reviewer_id = actor.id
+    review.manager_responses = data.get("responses", {})
+    review.blockers = data.get("blockers")
+    review.strengths = data.get("strengths")
+    review.action_items = data.get("action_items", [])
+    
+    intern_answers = " ".join(str(v) for v in (review.intern_responses or {}).values())
+    blockers_text = review.blockers or ""
+    strengths_text = review.strengths or ""
+    
+    review.ai_summary = f"[DRAFT AI Summary] Intern reports: '{intern_answers[:100]}...'. Manager noted strengths: '{strengths_text}'. Key blocker identified: '{blockers_text}'. Score: {score}/5."
+    review.status = "completed"
+    review.completed_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    log_action(
+        action="internship.review.manager_submitted",
+        actor=actor,
+        target_type="person",
+        target_id=review.person_id,
+        target_label=review.person.full_name,
+        details={"review_id": review.id, "score": score},
+    )
+    
+    return jsonify({"message": "Manager review completed", "review": review.to_dict()})
+
+
+@internship_bp.get("/internship/reviews/milestone")
+@require_role("viewer")
+def list_milestone_reviews():
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    actor = request.current_user
+    person_id = request.args.get("person_id", type=int)
+    query = MilestoneReview.query
+    if person_id:
+        person = Person.query.get_or_404(person_id)
+        if not _can_view_person_internship(actor, person):
+            return jsonify({"error": "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+        query = query.filter(MilestoneReview.person_id == person_id)
+
+    reviews = query.order_by(MilestoneReview.created_at.desc()).all()
+    if not person_id:
+        reviews = [r for r in reviews if _can_view_person_internship(actor, r.person)]
+    return jsonify({"items": [r.to_dict() for r in reviews]})
+
+
+@internship_bp.post("/internship/reviews/milestone/compile")
+@require_role("people_manager")
+def compile_milestone_review():
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    actor = request.current_user
+    data = request.get_json() or {}
+    person_id = data.get("person_id")
+    if not isinstance(person_id, int):
+        return _validation_error(["person_id is required"])
+    person = Person.query.get_or_404(person_id)
+    review_type = data.get("review_type", "3_month")
+
+    if review_type not in {"3_month", "6_month"}:
+        return _validation_error(["review_type must be either 3_month or 6_month"])
+
+    allowed, reason = _can_update_person_internship(actor, person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+        
+    existing = MilestoneReview.query.filter_by(person_id=person.id, review_type=review_type).first()
+    if existing:
+        return jsonify({"message": f"{review_type} review already exists", "review": existing.to_dict()})
+        
+    biweeklies = BiweeklyReview.query.filter_by(person_id=person.id, status="completed").all()
+    scores = [r.score_progress for r in biweeklies if r.score_progress is not None]
+    avg_score = round(sum(scores) / len(scores), 2) if scores else 3.0
+    
+    from app.models import PersonOnboardingItem
+    onboarding_items = PersonOnboardingItem.query.filter_by(person_id=person.id).all()
+    total_onboarding = len(onboarding_items)
+    completed_onboarding = sum(1 for item in onboarding_items if item.checked)
+    onboarding_pct = round((completed_onboarding / total_onboarding) * 100, 2) if total_onboarding else 0.0
+    
+    from app.utils.integrations_mock import get_taiga_activity
+    taiga_summary = get_taiga_activity(person.taiga_username)
+    
+    mattermost_summary = {
+        "username": person.mattermost_username or "unknown",
+        "posts_count": 42 if person.mattermost_username else 0,
+        "active_days": 10 if person.mattermost_username else 0,
+    }
+    
+    ai_recs = f"[DRAFT AI RECOMMENDATION] Intern shows solid progress. Onboarding completed at {onboarding_pct}%. Suggesting conversion to full-time." if avg_score >= 4.0 else f"[DRAFT AI RECOMMENDATION] Performance is average ({avg_score}/5). Recommend extending internship cohort period."
+    
+    milestone = MilestoneReview(
+        person_id=person.id,
+        review_type=review_type,
+        status="draft",
+        compiled_score=avg_score,
+        onboarding_progress=onboarding_pct,
+        taiga_activity_summary=taiga_summary,
+        mattermost_activity_summary=mattermost_summary,
+        disciplinary_summary="No disciplinary incidents logged.",
+        ai_recommendations=ai_recs,
+        ai_recommendations_approved=False,
+        report_card_json={
+            "competencies": {
+                "technical": round(avg_score * 0.9 + 0.3, 1),
+                "communication": 4.0 if person.mattermost_username else 2.5,
+                "velocity": round(avg_score, 1),
+                "collaboration": 3.8,
+                "problem_solving": round(avg_score - 0.2, 1),
+            }
+        }
+    )
+    
+    db.session.add(milestone)
+    db.session.commit()
+    
+    log_action(
+        action="internship.review.milestone_compiled",
+        actor=request.current_user,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"review_type": review_type, "milestone_id": milestone.id},
+    )
+    
+    return jsonify({"message": "Milestone review compiled", "review": milestone.to_dict()}), 201
+
+
+@internship_bp.post("/internship/reviews/milestone/<int:review_id>/approve-ai")
+@require_role("people_manager")
+def approve_ai_milestone_recommendations(review_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+        
+    milestone = MilestoneReview.query.get_or_404(review_id)
+
+    allowed, reason = _can_update_person_internship(request.current_user, milestone.person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    milestone.ai_recommendations_approved = True
+    db.session.commit()
+    
+    log_action(
+        action="internship.review.milestone_ai_approved",
+        actor=request.current_user,
+        target_type="person",
+        target_id=milestone.person_id,
+        target_label=milestone.person.full_name,
+        details={"milestone_id": milestone.id},
+    )
+    
+    return jsonify({"message": "AI recommendations approved by manager", "review": milestone.to_dict()})
+
+
+def _finalize_milestone(milestone, decision, actor):
+    """Apply a final milestone decision. Callers must have validated permissions,
+    decision value, and that the milestone is not already released."""
+    milestone.final_decision = decision
+    milestone.decision_by_id = actor.id
+    milestone.decision_date = datetime.utcnow().date()
+    milestone.status = "released"
+
+    person = milestone.person
+    emp = person.active_employment
+    if emp:
+        if decision == "convert":
+            emp.employment_type = "full_time"
+        elif decision == "extend":
+            from datetime import timedelta
+            if emp.end_date:
+                emp.end_date = emp.end_date + timedelta(days=90)
+        elif decision == "release":
+            emp.status = "completed"
+            emp.end_date = datetime.utcnow().date()
+
+    db.session.commit()
+
+    from app.utils.integrations_mock import send_email_notification
+    send_email_notification(
+        email=person.email,
+        template_type="milestone_completed",
+        context={"name": person.full_name, "review_type": milestone.review_type, "decision": decision}
+    )
+
+    log_action(
+        action="internship.review.milestone_finalized",
+        actor=actor,
+        target_type="person",
+        target_id=milestone.person_id,
+        target_label=person.full_name,
+        details={"milestone_id": milestone.id, "decision": decision},
+    )
+    return milestone
+
+
+@internship_bp.post("/internship/reviews/milestone/<int:review_id>/finalize")
+@require_role("people_manager")
+def finalize_milestone_review(review_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    milestone = MilestoneReview.query.get_or_404(review_id)
+
+    allowed, reason = _can_update_person_internship(request.current_user, milestone.person)
+    if not allowed:
+        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    if milestone.status == "released":
+        return _validation_error(["This milestone review has already been finalized"])
+
+    if not milestone.ai_recommendations_approved:
+        return _validation_error(["The draft recommendation must be reviewed and approved before finalizing"])
+
+    data = request.get_json() or {}
+    decision = data.get("decision")
+
+    if decision not in {"convert", "extend", "reassign", "release"}:
+        return _validation_error(["decision must be one of: convert, extend, reassign, release"])
+
+    from app.routes.governance import check_policy
+
+    requires_approval, _policy, approval_request = check_policy(
+        action="people.finalize_milestone",
+        actor=request.current_user,
+        target_type="milestone_review",
+        target_id=milestone.id,
+        target_label=f"{milestone.review_type} review for {milestone.person.full_name}",
+        request_data={"milestone_id": milestone.id, "decision": decision},
+    )
+    if requires_approval and approval_request:
+        return jsonify({
+            "message": "Approval required to finalize milestone decision",
+            "code": "APPROVAL_REQUIRED",
+            "approval_request": approval_request.to_dict(),
+        }), 202
+
+    milestone = _finalize_milestone(milestone, decision, request.current_user)
+    return jsonify({"message": f"Milestone review finalized with decision: {decision}", "review": milestone.to_dict()})

@@ -1166,6 +1166,12 @@ class Person(db.Model):
     department = db.Column(db.String(100), nullable=True)
     cohort = db.Column(db.String(100), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    taiga_username = db.Column(db.String(100), nullable=True)
+    mattermost_username = db.Column(db.String(100), nullable=True)
+    assigned_projects = db.Column(db.JSON, nullable=True)
+    signed_documents = db.Column(db.JSON, nullable=True)
+    risk_flags = db.Column(db.JSON, nullable=True)
+    growth_summary = db.Column(db.Text, nullable=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1198,6 +1204,12 @@ class Person(db.Model):
             "department": self.department,
             "cohort": self.cohort,
             "is_active": self.is_active,
+            "taiga_username": self.taiga_username,
+            "mattermost_username": self.mattermost_username,
+            "assigned_projects": self.assigned_projects or [],
+            "signed_documents": self.signed_documents or {},
+            "risk_flags": self.risk_flags or [],
+            "growth_summary": self.growth_summary,
             "created_by_id": self.created_by_id,
             "creator_email": self.creator.email if self.creator else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -1435,6 +1447,9 @@ class OnboardingTemplateItem(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    role_target = db.Column(db.String(50), default="intern", nullable=False)
+    owner_role = db.Column(db.String(50), default="intern", nullable=False)
+    days_to_complete = db.Column(db.Integer, default=7, nullable=False)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -1447,6 +1462,9 @@ class OnboardingTemplateItem(db.Model):
             "title": self.title,
             "description": self.description,
             "is_active": self.is_active,
+            "role_target": self.role_target,
+            "owner_role": self.owner_role,
+            "days_to_complete": self.days_to_complete,
             "created_by_id": self.created_by_id,
             "creator_email": self.creator.email if self.creator else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -1465,6 +1483,9 @@ class PersonOnboardingItem(db.Model):
     template_item_id = db.Column(db.Integer, db.ForeignKey("onboarding_template_item.id"), nullable=False)
     checked = db.Column(db.Boolean, default=False, nullable=False)
     checked_at = db.Column(db.DateTime, nullable=True)
+    due_date = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), default="pending", nullable=False)
+    item_type = db.Column(db.String(50), default="general", nullable=False)
     updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -1481,6 +1502,10 @@ class PersonOnboardingItem(db.Model):
             "description": self.template_item.description if self.template_item else None,
             "checked": self.checked,
             "checked_at": self.checked_at.isoformat() if self.checked_at else None,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "status": self.status,
+            "item_type": self.item_type,
+            "owner_role": self.template_item.owner_role if self.template_item else None,
             "updated_by_id": self.updated_by_id,
             "updated_by_email": self.updater.email if self.updater else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -1683,6 +1708,103 @@ class ExternalDestination(db.Model):
             "is_active": self.is_active,
             "created_by_id": self.created_by_id,
             "creator_email": self.creator.email if self.creator else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class BiweeklyReview(db.Model):
+    __tablename__ = "biweekly_review"
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    period_start = db.Column(db.Date, nullable=False)
+    period_end = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(30), default="pending_intern", nullable=False)  # pending_intern|pending_manager|completed
+    intern_responses = db.Column(db.JSON, nullable=True)
+    manager_questions = db.Column(db.JSON, nullable=True)
+    manager_responses = db.Column(db.JSON, nullable=True)
+    score_progress = db.Column(db.Integer, nullable=True)
+    blockers = db.Column(db.Text, nullable=True)
+    strengths = db.Column(db.Text, nullable=True)
+    action_items = db.Column(db.JSON, nullable=True)
+    ai_summary = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    person = db.relationship("Person", backref=db.backref("biweekly_reviews", lazy="dynamic"))
+    reviewer = db.relationship("User", backref="reviewed_biweeklies")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "person_name": self.person.full_name if self.person else None,
+            "reviewer_id": self.reviewer_id,
+            "reviewer_email": self.reviewer.email if self.reviewer else None,
+            "period_start": self.period_start.isoformat() if self.period_start else None,
+            "period_end": self.period_end.isoformat() if self.period_end else None,
+            "status": self.status,
+            "intern_responses": self.intern_responses or {},
+            "manager_questions": self.manager_questions or [],
+            "manager_responses": self.manager_responses or {},
+            "score_progress": self.score_progress,
+            "blockers": self.blockers,
+            "strengths": self.strengths,
+            "action_items": self.action_items or [],
+            "ai_summary": self.ai_summary,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class MilestoneReview(db.Model):
+    __tablename__ = "milestone_review"
+    __table_args__ = (
+        db.UniqueConstraint("person_id", "review_type", name="uq_milestone_review_person_type"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    review_type = db.Column(db.String(20), nullable=False)  # 3_month|6_month
+    status = db.Column(db.String(20), default="draft", nullable=False)  # draft|approved|released
+    compiled_score = db.Column(db.Float, nullable=True)
+    onboarding_progress = db.Column(db.Float, nullable=True)
+    taiga_activity_summary = db.Column(db.JSON, nullable=True)
+    mattermost_activity_summary = db.Column(db.JSON, nullable=True)
+    disciplinary_summary = db.Column(db.Text, nullable=True)
+    ai_recommendations = db.Column(db.Text, nullable=True)
+    ai_recommendations_approved = db.Column(db.Boolean, default=False, nullable=False)
+    final_decision = db.Column(db.String(30), nullable=True)  # convert|extend|reassign|release
+    decision_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    decision_date = db.Column(db.Date, nullable=True)
+    report_card_json = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    person = db.relationship("Person", backref=db.backref("milestone_reviews", lazy="dynamic"))
+    decision_by = db.relationship("User", backref="decided_milestones")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "person_name": self.person.full_name if self.person else None,
+            "review_type": self.review_type,
+            "status": self.status,
+            "compiled_score": self.compiled_score,
+            "onboarding_progress": self.onboarding_progress,
+            "taiga_activity_summary": self.taiga_activity_summary or {},
+            "mattermost_activity_summary": self.mattermost_activity_summary or {},
+            "disciplinary_summary": self.disciplinary_summary,
+            "ai_recommendations": self.ai_recommendations,
+            "ai_recommendations_approved": self.ai_recommendations_approved,
+            "final_decision": self.final_decision,
+            "decision_by_id": self.decision_by_id,
+            "decision_by_email": self.decision_by.email if self.decision_by else None,
+            "decision_date": self.decision_date.isoformat() if self.decision_date else None,
+            "report_card_json": self.report_card_json or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

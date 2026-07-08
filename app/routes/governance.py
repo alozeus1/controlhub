@@ -573,6 +573,26 @@ def execute_approved_action(approval: ApprovalRequest, executor):
             "certificate_no": certificate.certificate_no,
         }
 
+    elif action == "people.finalize_milestone":
+        from app.models import MilestoneReview
+        from app.routes.internship import _finalize_milestone
+
+        milestone = MilestoneReview.query.get(request_data.get("milestone_id") or target_id)
+        if not milestone:
+            return {"success": False, "message": "Milestone review not found"}
+        if milestone.status == "released":
+            return {"success": False, "message": "Milestone review already finalized"}
+
+        decision = request_data.get("decision")
+        if decision not in {"convert", "extend", "reassign", "release"}:
+            return {"success": False, "message": f"Invalid decision: {decision}"}
+
+        _finalize_milestone(milestone, decision, executor)
+        return {
+            "success": True,
+            "message": f"Finalized {milestone.review_type} review for {milestone.person.full_name}: {decision}",
+        }
+
     elif action == "secret.reveal":
         return {"success": True, "message": "Secret reveal approved"}
 
@@ -637,6 +657,7 @@ PROTECTED_ACTIONS = [
     "people.convert_intern",
     "people.export_bulk",
     "people.issue_certificate",
+    "people.finalize_milestone",
     "secret.reveal",
     "agent.export",
     "agent.write_external",

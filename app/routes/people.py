@@ -390,10 +390,40 @@ def update_person(person_id):
         return jsonify({"error": reason, "code": "INSUFFICIENT_PERMISSIONS"}), 403
 
     data = request.get_json() or {}
-    allowed_fields = {"first_name", "last_name", "email", "phone", "team", "department", "cohort", "is_active"}
+    allowed_fields = {
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "team",
+        "department",
+        "cohort",
+        "is_active",
+        "taiga_username",
+        "mattermost_username",
+        "assigned_projects",
+        "signed_documents",
+        "risk_flags",
+        "growth_summary",
+    }
     unexpected = sorted(set(data.keys()) - allowed_fields)
     if unexpected:
         return _validation_error([f"Unexpected fields: {', '.join(unexpected)}"])
+
+    errors = []
+    for field in ("assigned_projects", "risk_flags"):
+        if field in data and data[field] is not None:
+            if not isinstance(data[field], list) or not all(isinstance(v, str) for v in data[field]):
+                errors.append(f"{field} must be a list of strings")
+    if "signed_documents" in data and data["signed_documents"] is not None:
+        if not isinstance(data["signed_documents"], dict):
+            errors.append("signed_documents must be an object")
+    for field in ("taiga_username", "mattermost_username"):
+        if field in data and data[field] is not None:
+            if not isinstance(data[field], str) or len(data[field]) > 100:
+                errors.append(f"{field} must be a string of at most 100 characters")
+    if errors:
+        return _validation_error(errors)
 
     before = {
         "first_name": person.first_name,
@@ -404,6 +434,12 @@ def update_person(person_id):
         "department": person.department,
         "cohort": person.cohort,
         "is_active": person.is_active,
+        "taiga_username": person.taiga_username,
+        "mattermost_username": person.mattermost_username,
+        "assigned_projects": person.assigned_projects,
+        "signed_documents": person.signed_documents,
+        "risk_flags": person.risk_flags,
+        "growth_summary": person.growth_summary,
     }
     for field in allowed_fields:
         if field in data:
@@ -417,6 +453,12 @@ def update_person(person_id):
         "department": person.department,
         "cohort": person.cohort,
         "is_active": person.is_active,
+        "taiga_username": person.taiga_username,
+        "mattermost_username": person.mattermost_username,
+        "assigned_projects": person.assigned_projects,
+        "signed_documents": person.signed_documents,
+        "risk_flags": person.risk_flags,
+        "growth_summary": person.growth_summary,
     }
     changes = _compute_changes(before, after)
     if not changes:
