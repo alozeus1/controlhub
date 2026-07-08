@@ -609,18 +609,7 @@ def update_onboarding_template(item_id):
     return jsonify({"message": "Onboarding template updated", "item": item.to_dict(), "changes": changes})
 
 
-@internship_bp.get("/internship/people/<int:person_id>/onboarding")
-@require_role("viewer")
-def get_person_onboarding(person_id):
-    error = check_feature_enabled()
-    if error:
-        return error
-
-    actor = request.current_user
-    person = Person.query.get_or_404(person_id)
-    if not _can_view_person_internship(actor, person):
-        return jsonify({"error": "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
-
+def _build_onboarding_payload(person):
     templates = OnboardingTemplateItem.query.filter_by(is_active=True).order_by(OnboardingTemplateItem.created_at.asc()).all()
     checks = {
         c.template_item_id: c
@@ -651,13 +640,29 @@ def get_person_onboarding(person_id):
 
     total = len(items)
     progress_percent = round((done / total) * 100) if total else 0
-    return jsonify({
-        "person": person.to_dict(),
+    return {
         "items": items,
         "done": done,
         "total": total,
         "progress_percent": progress_percent,
-    })
+    }
+
+
+@internship_bp.get("/internship/people/<int:person_id>/onboarding")
+@require_role("viewer")
+def get_person_onboarding(person_id):
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    actor = request.current_user
+    person = Person.query.get_or_404(person_id)
+    if not _can_view_person_internship(actor, person):
+        return jsonify({"error": "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    payload = _build_onboarding_payload(person)
+    payload["person"] = person.to_dict()
+    return jsonify(payload)
 
 
 @internship_bp.put("/internship/people/<int:person_id>/onboarding/<int:template_item_id>/check")
@@ -970,7 +975,7 @@ def initialize_person_onboarding(person_id):
 
 
 @internship_bp.patch("/internship/onboarding-item/<int:item_id>")
-@require_role("viewer")
+@require_active_user
 def patch_person_onboarding_item(item_id):
     error = check_feature_enabled()
     if error:
@@ -979,12 +984,24 @@ def patch_person_onboarding_item(item_id):
     actor = request.current_user
     item = PersonOnboardingItem.query.get_or_404(item_id)
     person = item.person
-    
+
+    data = request.get_json() or {}
+
     allowed, reason = _can_update_person_internship(actor, person)
     if not allowed:
-        return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
-        
-    data = request.get_json() or {}
+        # Self-service: people may update completion state on their own items
+        # when the checklist item is owned by them (owner_role == "intern").
+        template = item.template_item
+        is_self_service = (
+            person.user_id == actor.id
+            and template is not None
+            and template.owner_role == "intern"
+        )
+        if not is_self_service:
+            return jsonify({"error": reason or "Insufficient permissions", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+        extra = sorted(set(data.keys()) - {"checked", "status"})
+        if extra:
+            return _validation_error([f"You can only update checked/status on your own items (not: {', '.join(extra)})"])
 
     if "status" in data and data["status"] not in {"pending", "in_progress", "completed", "overdue"}:
         return _validation_error(["status must be one of: pending, in_progress, completed, overdue"])
@@ -1472,3 +1489,238 @@ def finalize_milestone_review(review_id):
 
     milestone = _finalize_milestone(milestone, decision, request.current_user)
     return jsonify({"message": f"Milestone review finalized with decision: {decision}", "review": milestone.to_dict()})
+
+
+# =============================================================================
+# PHASE 2: INTERN SELF-SERVICE PORTAL + MANAGER OPS SUMMARY
+# =============================================================================
+
+def _intern_biweekly_view(review):
+    """Biweekly review as shown to the intern it belongs to (no draft AI text)."""
+    data = review.to_dict()
+    data.pop("ai_summary", None)
+    return data
+
+
+def _intern_milestone_view(milestone):
+    """Released milestone review as shown to the intern (no draft AI text or
+    disciplinary notes — those are HR-internal)."""
+    data = milestone.to_dict()
+    data.pop("ai_recommendations", None)
+    data.pop("ai_recommendations_approved", None)
+    data.pop("disciplinary_summary", None)
+    return data
+
+
+@internship_bp.get("/internship/my-journey")
+@require_active_user
+def my_journey():
+    """Self-service view for the logged-in user's own internship journey.
+    Available to any authenticated active user, including role `user` interns."""
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    actor = request.current_user
+    person = Person.query.filter_by(user_id=actor.id).first()
+    if not person:
+        return jsonify({
+            "linked": False,
+            "profile": None,
+            "onboarding": None,
+            "biweekly_reviews": [],
+            "milestone_reviews": [],
+        })
+
+    employment = person.active_employment
+    profile = {
+        "person_id": person.id,
+        "full_name": person.full_name,
+        "email": person.email,
+        "team": person.team,
+        "department": person.department,
+        "cohort": person.cohort,
+        "taiga_username": person.taiga_username,
+        "mattermost_username": person.mattermost_username,
+        "assigned_projects": person.assigned_projects or [],
+        "employment": {
+            "title": employment.title,
+            "employment_type": employment.employment_type,
+            "intern_track": employment.intern_track,
+            "status": employment.status,
+            "start_date": employment.start_date.isoformat() if employment.start_date else None,
+            "end_date": employment.end_date.isoformat() if employment.end_date else None,
+            "manager_name": employment.manager.full_name if employment.manager else None,
+            "mentor_name": employment.mentor.full_name if employment.mentor else None,
+        } if employment else None,
+    }
+
+    biweeklies = (
+        BiweeklyReview.query.filter_by(person_id=person.id)
+        .order_by(BiweeklyReview.period_end.desc())
+        .all()
+    )
+    milestones = (
+        MilestoneReview.query.filter_by(person_id=person.id, status="released")
+        .order_by(MilestoneReview.created_at.desc())
+        .all()
+    )
+
+    return jsonify({
+        "linked": True,
+        "profile": profile,
+        "onboarding": _build_onboarding_payload(person),
+        "biweekly_reviews": [_intern_biweekly_view(r) for r in biweeklies],
+        "milestone_reviews": [_intern_milestone_view(m) for m in milestones],
+    })
+
+
+@internship_bp.get("/internship/ops-summary")
+@require_role("people_manager")
+def internship_ops_summary():
+    """Manager action center: pending grading, overdue reflections, overdue
+    onboarding, draft milestone decisions, milestones due for compilation, and
+    at-risk interns. HR admins/admins see the whole program; people_managers
+    only their direct reports."""
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    from app.models import Employment
+    from app.utils.people_rbac import get_person_for_user
+
+    actor = request.current_user
+    today = datetime.utcnow().date()
+
+    unrestricted = is_hr_admin(actor) or actor.role == "admin"
+    scoped_ids = None
+    if not unrestricted:
+        actor_person = get_person_for_user(actor.id)
+        if not actor_person:
+            return jsonify({
+                "action_queue": [], "overdue_reflections": [], "overdue_onboarding": [],
+                "pending_decisions": [], "milestones_due": [], "at_risk": [],
+                "scope": "none", "message": "No linked person profile for your account",
+            })
+        scoped_ids = {
+            e.person_id for e in Employment.query.filter_by(manager_person_id=actor_person.id).all()
+            if e.person and e.person.active_employment and e.person.active_employment.id == e.id
+        }
+
+    def in_scope(person_id):
+        return scoped_ids is None or person_id in scoped_ids
+
+    def person_ref(person):
+        emp = person.active_employment
+        return {
+            "person_id": person.id,
+            "full_name": person.full_name,
+            "email": person.email,
+            "cohort": person.cohort,
+            "intern_track": emp.intern_track if emp else None,
+        }
+
+    # 1. Biweekly reviews waiting on the manager
+    action_queue = [
+        {**person_ref(r.person), "review_id": r.id,
+         "period_start": r.period_start.isoformat(), "period_end": r.period_end.isoformat()}
+        for r in BiweeklyReview.query.filter_by(status="pending_manager").all()
+        if in_scope(r.person_id)
+    ]
+
+    # 2. Intern reflections past their period end
+    overdue_reflections = [
+        {**person_ref(r.person), "review_id": r.id,
+         "period_end": r.period_end.isoformat(),
+         "days_overdue": (today - r.period_end).days}
+        for r in BiweeklyReview.query.filter_by(status="pending_intern").all()
+        if in_scope(r.person_id) and r.period_end < today
+    ]
+
+    # 3. Overdue onboarding items, grouped per person
+    overdue_items = [
+        i for i in PersonOnboardingItem.query.filter(
+            PersonOnboardingItem.checked.is_(False),
+            PersonOnboardingItem.due_date.isnot(None),
+            PersonOnboardingItem.due_date < today,
+        ).all()
+        if in_scope(i.person_id)
+    ]
+    by_person = {}
+    for i in overdue_items:
+        entry = by_person.setdefault(i.person_id, {**person_ref(i.person), "overdue_count": 0, "items": []})
+        entry["overdue_count"] += 1
+        entry["items"].append({
+            "item_id": i.id,
+            "title": i.template_item.title if i.template_item else None,
+            "due_date": i.due_date.isoformat(),
+            "owner_role": i.template_item.owner_role if i.template_item else None,
+        })
+    overdue_onboarding = sorted(by_person.values(), key=lambda e: -e["overdue_count"])
+
+    # 4. Draft milestone reviews awaiting a decision
+    pending_decisions = [
+        {**person_ref(m.person), "milestone_id": m.id, "review_type": m.review_type,
+         "compiled_score": m.compiled_score,
+         "ai_recommendations_approved": m.ai_recommendations_approved,
+         "created_at": m.created_at.isoformat() if m.created_at else None}
+        for m in MilestoneReview.query.filter_by(status="draft").all()
+        if in_scope(m.person_id)
+    ]
+
+    # 5. Interns due for a milestone compilation (approaching 3/6 months in)
+    milestones_due = []
+    intern_employments = [
+        e for e in Employment.query.filter_by(employment_type="intern", status="active").all()
+        if in_scope(e.person_id) and e.person and e.person.active_employment
+        and e.person.active_employment.id == e.id and e.start_date
+    ]
+    for e in intern_employments:
+        days_in = (today - e.start_date).days
+        existing_types = {m.review_type for m in MilestoneReview.query.filter_by(person_id=e.person_id).all()}
+        due_type = None
+        if days_in >= 170 and "6_month" not in existing_types:
+            due_type = "6_month"
+        elif days_in >= 80 and "3_month" not in existing_types:
+            due_type = "3_month"
+        if due_type:
+            milestones_due.append({**person_ref(e.person), "due_type": due_type, "days_in_program": days_in})
+
+    # 6. At-risk board: flagged interns or declining/low recent scores
+    at_risk = []
+    for e in intern_employments:
+        person = e.person
+        flags = person.risk_flags or []
+        recent = (
+            BiweeklyReview.query.filter_by(person_id=person.id, status="completed")
+            .order_by(BiweeklyReview.period_end.desc())
+            .limit(2)
+            .all()
+        )
+        recent_scores = [r.score_progress for r in recent if r.score_progress is not None]
+        low_score = bool(recent_scores) and (sum(recent_scores) / len(recent_scores)) <= 2.5
+        if flags or low_score:
+            at_risk.append({
+                **person_ref(person),
+                "risk_flags": flags,
+                "recent_scores": recent_scores,
+                "reasons": (["risk_flags"] if flags else []) + (["low_recent_scores"] if low_score else []),
+            })
+
+    return jsonify({
+        "scope": "all" if unrestricted else "managed",
+        "action_queue": action_queue,
+        "overdue_reflections": overdue_reflections,
+        "overdue_onboarding": overdue_onboarding,
+        "pending_decisions": pending_decisions,
+        "milestones_due": milestones_due,
+        "at_risk": at_risk,
+        "counts": {
+            "action_queue": len(action_queue),
+            "overdue_reflections": len(overdue_reflections),
+            "overdue_onboarding": len(overdue_onboarding),
+            "pending_decisions": len(pending_decisions),
+            "milestones_due": len(milestones_due),
+            "at_risk": len(at_risk),
+        },
+    })

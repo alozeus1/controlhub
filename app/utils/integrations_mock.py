@@ -1,9 +1,17 @@
 """
-Mocked Integration Gateways for Taiga, Mattermost, and Email Notification Workflows.
-This module supports both realistic mock triggers and integrates with env-gated configurations.
+Integration gateways for Taiga, Mattermost, and Resend-style email notifications.
 
-All functions here are best-effort: a failure to render or audit a mock
-notification must never break the calling workflow.
+Default behavior is MOCK mode: no credentials required, nothing leaves the app,
+and every attempt is audit-logged with a `mocked` marker. Real delivery is
+env-gated per provider (see config.py):
+
+- Taiga:      TAIGA_API_ENABLED + TAIGA_API_URL + TAIGA_AUTH_TOKEN
+- Mattermost: MATTERMOST_API_ENABLED + MATTERMOST_WEBHOOK_URL
+- Email:      EMAIL_NOTIFICATIONS_ENABLED + RESEND_API_KEY (+ RESEND_FROM_EMAIL)
+
+All functions are best-effort: a failure to render, deliver, or audit a
+notification must never break the calling workflow. Real-delivery failures
+fall back to mock behavior and are recorded in the audit details.
 """
 import logging
 from datetime import datetime
@@ -11,6 +19,8 @@ from flask import current_app
 from app.utils.audit import log_action
 
 logger = logging.getLogger(__name__)
+
+REQUEST_TIMEOUT_SECONDS = 5
 
 
 class _SafeDict(dict):
@@ -35,17 +45,82 @@ def _safe_log_action(**kwargs):
         logger.warning("Could not audit integration action %s", kwargs.get("action"), exc_info=True)
 
 
-def _flag_enabled(flag):
+def _config(key, default=None):
     try:
-        return bool(current_app.config.get(flag, False))
+        return current_app.config.get(key, default)
     except RuntimeError:
-        return False
+        return default
+
+
+def _mock_taiga_metrics(taiga_username):
+    """Deterministic synthetic metrics per username (stable across calls),
+    without touching the global random state."""
+    import random
+    rng = random.Random(sum(ord(c) for c in taiga_username))
+
+    completed = rng.randint(5, 30)
+    active = rng.randint(1, 8)
+    comments = rng.randint(10, 50)
+    score = min(100, int((completed * 3) + (comments * 0.5) + 30))
+    return {
+        "completed_tasks": completed,
+        "active_issues": active,
+        "comments_posted": comments,
+        "participation_score": score,
+        "last_active": datetime.utcnow().date().isoformat(),
+        "source": "mock",
+    }
+
+
+def _fetch_real_taiga_metrics(taiga_username):
+    """Fetch member stats from a real Taiga instance. Returns None on any failure."""
+    base_url = (_config("TAIGA_API_URL") or "").rstrip("/")
+    token = _config("TAIGA_AUTH_TOKEN")
+    if not base_url or not token:
+        return None
+
+    import requests
+
+    headers = {"Authorization": f"Bearer {token}"}
+    users = requests.get(
+        f"{base_url}/api/v1/users",
+        params={"username": taiga_username},
+        headers=headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    users.raise_for_status()
+    matches = [u for u in users.json() if u.get("username") == taiga_username]
+    if not matches:
+        return None
+    user = matches[0]
+
+    stats = requests.get(
+        f"{base_url}/api/v1/users/{user['id']}/stats",
+        headers=headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    stats.raise_for_status()
+    data = stats.json()
+
+    completed = int(data.get("total_num_closed_userstories") or 0)
+    active = int(data.get("total_num_open_userstories") or data.get("total_num_userstories") or 0)
+    comments = int(data.get("total_num_comments") or 0)
+    score = min(100, int((completed * 3) + (comments * 0.5) + 30)) if (completed or comments) else 0
+    return {
+        "completed_tasks": completed,
+        "active_issues": active,
+        "comments_posted": comments,
+        "participation_score": score,
+        "last_active": data.get("last_login") or datetime.utcnow().date().isoformat(),
+        "source": "taiga",
+    }
 
 
 def get_taiga_activity(taiga_username):
     """
-    Simulates fetching activity details from Taiga for a given username.
-    In development mode or when mock is enabled, returns synthetic metrics.
+    Fetch activity details from Taiga for a given username.
+    Uses the real Taiga API when TAIGA_API_ENABLED is set and configured;
+    otherwise (or on any failure) returns deterministic mock metrics.
     """
     if not taiga_username:
         return {
@@ -57,40 +132,36 @@ def get_taiga_activity(taiga_username):
             "source": "mock",
         }
 
-    # Synthetic but realistic response for local dev/testing.
-    # Deterministic per username so results are stable across calls,
-    # without touching the global random state.
-    import random
-    rng = random.Random(sum(ord(c) for c in taiga_username))
+    activity = None
+    error = None
+    if _config("TAIGA_API_ENABLED", False):
+        try:
+            activity = _fetch_real_taiga_metrics(taiga_username)
+        except Exception as exc:
+            error = str(exc)
+            logger.warning("Taiga fetch failed for %s; falling back to mock: %s", taiga_username, exc)
 
-    completed = rng.randint(5, 30)
-    active = rng.randint(1, 8)
-    comments = rng.randint(10, 50)
-    score = min(100, int((completed * 3) + (comments * 0.5) + 30))
+    if activity is None:
+        activity = _mock_taiga_metrics(taiga_username)
 
-    activity = {
-        "completed_tasks": completed,
-        "active_issues": active,
-        "comments_posted": comments,
-        "participation_score": score,
-        "last_active": datetime.utcnow().date().isoformat(),
-        "source": "mock",
-    }
-
+    details = {"mocked": activity["source"] == "mock", "participation_score": activity["participation_score"]}
+    if error:
+        details["fallback_reason"] = error[:300]
     _safe_log_action(
         action="integration.taiga.activity_fetched",
         actor=None,
         target_type="user",
         target_id=None,
         target_label=taiga_username,
-        details={"mocked": not _flag_enabled("TAIGA_API_ENABLED"), "participation_score": score},
+        details=details,
     )
     return activity
 
 
 def send_mattermost_notification(username, template_type, context):
     """
-    Simulates sending a channel or DM notification to Mattermost.
+    Send a Mattermost DM/channel notification. Posts to the configured incoming
+    webhook when MATTERMOST_API_ENABLED is set; otherwise logs a mock delivery.
     """
     templates = {
         "onboarding_reminder": "Hello @{username}, this is a reminder to complete your onboarding task: '{task_title}'. Due: {due_date}.",
@@ -103,32 +174,40 @@ def send_mattermost_notification(username, template_type, context):
     msg_template = templates.get(template_type, "Notification: {context}")
     message = _safe_format(msg_template, username=username, **(context or {}))
 
-    use_real = _flag_enabled("MATTERMOST_API_ENABLED")
-    if use_real:
-        # In production/live mode, we would call the Mattermost webhook endpoint
-        # e.g., requests.post(webhook_url, json={"text": message})
-        pass
+    delivered = False
+    error = None
+    webhook_url = _config("MATTERMOST_WEBHOOK_URL")
+    if _config("MATTERMOST_API_ENABLED", False) and webhook_url:
+        try:
+            import requests
+            resp = requests.post(webhook_url, json={"text": message}, timeout=REQUEST_TIMEOUT_SECONDS)
+            resp.raise_for_status()
+            delivered = True
+        except Exception as exc:
+            error = str(exc)
+            logger.warning("Mattermost delivery failed for @%s: %s", username, exc)
 
-    logger.info(f"[MATTERMOST MOCK] Notification sent to @{username}: {message}")
+    if not delivered:
+        logger.info(f"[MATTERMOST MOCK] Notification sent to @{username}: {message}")
 
+    details = {"template_type": template_type, "message": message, "mocked": not delivered}
+    if error:
+        details["delivery_error"] = error[:300]
     _safe_log_action(
         action="integration.mattermost.notify",
         actor=None,
         target_type="user",
         target_id=None,
         target_label=username,
-        details={
-            "template_type": template_type,
-            "message": message,
-            "mocked": not use_real,
-        },
+        details=details,
     )
     return True, message
 
 
 def send_email_notification(email, template_type, context):
     """
-    Simulates sending a transactional email using a Resend-style delivery model.
+    Send a transactional email. Delivers through the Resend API when
+    EMAIL_NOTIFICATIONS_ENABLED is set; otherwise logs a mock delivery.
     """
     templates = {
         "onboarding_initialized": {
@@ -157,23 +236,41 @@ def send_email_notification(email, template_type, context):
     subject = _safe_format(tpl["subject"], **(context or {}))
     body = _safe_format(tpl["body"], **(context or {}))
 
-    use_real = _flag_enabled("EMAIL_NOTIFICATIONS_ENABLED")
-    if use_real:
-        # In a real environment, we would trigger the Resend SDK or Flask-Mail
-        pass
+    delivered = False
+    error = None
+    api_key = _config("RESEND_API_KEY")
+    if _config("EMAIL_NOTIFICATIONS_ENABLED", False) and api_key:
+        try:
+            import requests
+            resp = requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "from": _config("RESEND_FROM_EMAIL", "controlhub@notifications.webforxtech.com"),
+                    "to": [email],
+                    "subject": subject,
+                    "text": body,
+                },
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            resp.raise_for_status()
+            delivered = True
+        except Exception as exc:
+            error = str(exc)
+            logger.warning("Email delivery failed for %s: %s", email, exc)
 
-    logger.info(f"[EMAIL MOCK] Sent to {email}\nSubject: {subject}\nBody: {body}")
+    if not delivered:
+        logger.info(f"[EMAIL MOCK] Sent to {email}\nSubject: {subject}\nBody: {body}")
 
+    details = {"template_type": template_type, "subject": subject, "mocked": not delivered}
+    if error:
+        details["delivery_error"] = error[:300]
     _safe_log_action(
         action="integration.email.send",
         actor=None,
         target_type="user",
         target_id=None,
         target_label=email,
-        details={
-            "template_type": template_type,
-            "subject": subject,
-            "mocked": not use_real,
-        },
+        details=details,
     )
     return True, subject

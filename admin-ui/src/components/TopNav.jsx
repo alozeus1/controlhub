@@ -22,6 +22,8 @@ const pageNames = {
   costs: "Cost Tracker",
   people: "People",
   internship: "Internship Program",
+  "intern-ops": "Intern Ops",
+  "my-journey": "My Journey",
   "exports-reports": "Exports & Reports",
   "agent-requests": "Agent Requests",
   "service-accounts": "Service Accounts",

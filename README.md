@@ -312,15 +312,20 @@ ControlHub has been evolved to include a comprehensive SaaS-style organization m
   - **Mattermost**: In-app webhook alerts for overdue reviews, onboarding milestones, and approvals.
   - **Email**: Transactional email delivery alerts.
 
+### Phase 2: Intern portal & manager ops
+
+- **My Journey** (`/ui/my-journey`, `GET /admin/internship/my-journey`): self-service page for any authenticated user with a linked person profile. Interns (role `user`) land here after login and see only this page. It shows their profile, onboarding checklist (they can complete their own `owner_role: intern` items), biweekly review history, and **released** milestone results. Draft AI text, disciplinary notes, risk flags, and growth summaries are never included in the intern payload.
+- **Intern Ops** (`/ui/intern-ops`, `GET /admin/internship/ops-summary`): manager action center — reviews awaiting grading, overdue intern reflections, overdue onboarding items, draft milestone decisions, milestones due for compilation (~3/6 months in), and an at-risk board (risk flags or low recent scores). `people_manager` sees direct reports only; hr_admin/admin/superadmin see the whole program.
+
 ### Integration environment flags
 
-The Taiga/Mattermost/Email providers in `app/utils/integrations_mock.py` are mocks by default. They read these (currently unset) config flags and fall back to mock mode when absent, so no credentials are required in dev/test:
+The Taiga/Mattermost/Email providers in `app/utils/integrations_mock.py` run in mock mode by default — no credentials required in dev/test, nothing leaves the app. Real delivery is enabled per provider; on any delivery failure the code falls back to mock behavior and records the error in the audit details:
 
-- `TAIGA_API_ENABLED` — reserved for a future real Taiga sync
-- `MATTERMOST_API_ENABLED` — reserved for a future real Mattermost webhook
-- `EMAIL_NOTIFICATIONS_ENABLED` — reserved for a future Resend/Flask-Mail sender
+- Taiga sync: `TAIGA_API_ENABLED=true` + `TAIGA_API_URL` + `TAIGA_AUTH_TOKEN`
+- Mattermost: `MATTERMOST_API_ENABLED=true` + `MATTERMOST_WEBHOOK_URL` (incoming webhook)
+- Email (Resend): `EMAIL_NOTIFICATIONS_ENABLED=true` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`)
 
-Every mock notification/fetch attempt is written to the audit log (`integration.taiga.activity_fetched`, `integration.mattermost.notify`, `integration.email.send`) with a `mocked` marker in the details.
+Every notification/fetch attempt — mock or real — is written to the audit log (`integration.taiga.activity_fetched`, `integration.mattermost.notify`, `integration.email.send`) with a `mocked` marker and, for real attempts, delivery status.
 
 ### RBAC notes for reviews & onboarding
 

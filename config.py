@@ -53,6 +53,16 @@ class Config:
         self.FEATURE_INTERNSHIP_PROGRAM = os.environ.get("FEATURE_INTERNSHIP_PROGRAM", "true").lower() == "true"
         self.FEATURE_AGENT_SERVICE = os.environ.get("FEATURE_AGENT_SERVICE", "true").lower() == "true"
 
+        # SaaS org-management integrations (default: mock mode, no credentials needed)
+        self.TAIGA_API_ENABLED = os.environ.get("TAIGA_API_ENABLED", "false").lower() == "true"
+        self.TAIGA_API_URL = os.environ.get("TAIGA_API_URL", "")
+        self.TAIGA_AUTH_TOKEN = os.environ.get("TAIGA_AUTH_TOKEN", "")
+        self.MATTERMOST_API_ENABLED = os.environ.get("MATTERMOST_API_ENABLED", "false").lower() == "true"
+        self.MATTERMOST_WEBHOOK_URL = os.environ.get("MATTERMOST_WEBHOOK_URL", "")
+        self.EMAIL_NOTIFICATIONS_ENABLED = os.environ.get("EMAIL_NOTIFICATIONS_ENABLED", "false").lower() == "true"
+        self.RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+        self.RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "controlhub@notifications.webforxtech.com")
+
         # Agent service controls
         self.AGENT_EXPORT_APPROVAL_ROW_THRESHOLD = int(os.environ.get("AGENT_EXPORT_APPROVAL_ROW_THRESHOLD", 200))
         self.AGENT_ARTIFACT_STORAGE = os.environ.get("AGENT_ARTIFACT_STORAGE", "local")

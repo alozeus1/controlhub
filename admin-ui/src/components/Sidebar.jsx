@@ -1,13 +1,26 @@
 import { NavLink } from "react-router-dom";
 import logoIcon from "../assets/brand/logo-icon.svg";
 import { useFeatures } from "../contexts/FeaturesContext";
+import { getCurrentRole } from "../utils/auth";
 import AppIcon from "./ui/AppIcon";
 import "./Sidebar.css";
 
-const getNavItems = (features) => {
+const MANAGER_ROLES = ["superadmin", "hr_admin", "admin", "people_manager"];
+
+const getNavItems = (features, role) => {
+  // Basic users (interns) only get their self-service journey.
+  if (role === "user") {
+    return [
+      { section: "My Space", items: [
+        { to: "/ui/my-journey", icon: "users", label: "My Journey" },
+      ]},
+    ];
+  }
+
   const items = [
     { section: "Overview", items: [
       { to: "/ui/dashboard", icon: "dashboard", label: "Dashboard" },
+      ...(features.internship_program ? [{ to: "/ui/my-journey", icon: "users", label: "My Journey" }] : []),
     ]},
     { section: "Management", items: [
       { to: "/ui/users", icon: "users", label: "Users" },
@@ -35,6 +48,7 @@ const getNavItems = (features) => {
       { to: "/ui/costs", icon: "currency", label: "Cost Tracker" },
       ...(features.people ? [{ to: "/ui/people", icon: "users", label: "People" }] : []),
       ...(features.internship_program ? [{ to: "/ui/internship", icon: "users", label: "Internship Program" }] : []),
+      ...(features.internship_program && MANAGER_ROLES.includes(role) ? [{ to: "/ui/intern-ops", icon: "alert", label: "Intern Ops" }] : []),
       ...(features.agent_service ? [{ to: "/ui/exports-reports", icon: "report", label: "Exports & Reports" }] : []),
       ...(features.agent_service ? [{ to: "/ui/agent-requests", icon: "robot", label: "Agent Requests" }] : []),
     ]},
@@ -70,7 +84,7 @@ const getNavItems = (features) => {
 
 export default function Sidebar({ isOpen, onClose }) {
   const { features } = useFeatures();
-  const navItems = getNavItems(features);
+  const navItems = getNavItems(features, getCurrentRole());
 
   return (
     <>

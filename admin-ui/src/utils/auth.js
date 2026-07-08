@@ -15,6 +15,19 @@ export function setTokens(accessToken, refreshToken) {
   }
 }
 
+export function getCurrentUser() {
+  try {
+    const raw = sessionStorage.getItem("user") || localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getCurrentRole() {
+  return getCurrentUser()?.role || null;
+}
+
 export function clearTokens() {
   sessionStorage.removeItem("access_token");
   sessionStorage.removeItem("refresh_token");
