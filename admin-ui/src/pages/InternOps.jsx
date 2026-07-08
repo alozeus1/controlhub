@@ -4,7 +4,7 @@ import api from "../utils/api";
 import { PageLoader } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import { motion } from "framer-motion";
-import { ClipboardList, AlarmClock, ListChecks, Gavel, CalendarClock, ShieldAlert } from "lucide-react";
+import { ClipboardList, AlarmClock, ListChecks, Gavel, CalendarClock, ShieldAlert, Briefcase } from "lucide-react";
 import "./PersonDetail.css";
 
 function StatCard({ icon: Icon, label, value, tone }) {
@@ -43,10 +43,15 @@ export default function InternOps() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
+  const [employeeReviews, setEmployeeReviews] = useState([]);
 
   const fetchSummary = useCallback(async () => {
-    const res = await api.get("/admin/internship/ops-summary");
-    setSummary(res.data);
+    const [opsRes, perfRes] = await Promise.all([
+      api.get("/admin/internship/ops-summary"),
+      api.get("/admin/performance/reviews").catch(() => ({ data: { items: [] } })),
+    ]);
+    setSummary(opsRes.data);
+    setEmployeeReviews(perfRes.data.items || []);
   }, []);
 
   useEffect(() => {
@@ -66,12 +71,14 @@ export default function InternOps() {
   if (!summary) return <div className="person-detail-page"><p className="text-muted">No data available.</p></div>;
 
   const counts = summary.counts || {};
+  const employeeReviewsToGrade = employeeReviews.filter((r) => r.status === "pending_manager");
+  const employeeReviewsAwaitingSelf = employeeReviews.filter((r) => r.status === "pending_self");
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="person-detail-page">
       <div className="page-header" style={{ marginBottom: "1.5rem" }}>
         <div>
-          <h1 className="page-title">Intern Ops</h1>
+          <h1 className="page-title">Team Ops</h1>
           <p className="page-subtitle">
             {summary.scope === "all" ? "Program-wide view" : "Your direct reports"} — everything that needs a manager's attention.
           </p>
@@ -85,6 +92,7 @@ export default function InternOps() {
         <StatCard icon={Gavel} label="Pending decisions" value={counts.pending_decisions || 0} />
         <StatCard icon={CalendarClock} label="Milestones due" value={counts.milestones_due || 0} />
         <StatCard icon={ShieldAlert} label="At-risk interns" value={counts.at_risk || 0} tone="var(--color-danger)" />
+        <StatCard icon={Briefcase} label="Employee reviews to grade" value={employeeReviewsToGrade.length} />
       </div>
 
       <div className="grid grid-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
@@ -178,6 +186,29 @@ export default function InternOps() {
                 {item.reasons.includes("low_recent_scores") && (
                   <span className="badge badge-neutral" style={{ color: "var(--color-danger)" }}>low scores</span>
                 )}
+              </div>
+            </div>
+          ))}
+        </SectionPanel>
+
+        <SectionPanel icon={Briefcase} title="Employee Reviews — Awaiting Grading" emptyText="Nothing waiting on you." count={employeeReviewsToGrade.length}>
+          {employeeReviewsToGrade.map((r) => (
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--color-border)" }}>
+              <div>
+                <Link to={`/ui/people/${r.person_id}`} style={{ color: "var(--color-primary)", fontWeight: 600 }}>{r.person_name}</Link>
+                <span style={{ display: "block", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>{r.quarter} quarterly review</span>
+              </div>
+              <Link to={`/ui/people/${r.person_id}`} className="badge badge-neutral">Grade</Link>
+            </div>
+          ))}
+        </SectionPanel>
+
+        <SectionPanel icon={Briefcase} title="Employee Reviews — Awaiting Self-Report" emptyText="Everyone has submitted." count={employeeReviewsAwaitingSelf.length}>
+          {employeeReviewsAwaitingSelf.map((r) => (
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--color-border)" }}>
+              <div>
+                <Link to={`/ui/people/${r.person_id}`} style={{ color: "var(--color-primary)", fontWeight: 600 }}>{r.person_name}</Link>
+                <span style={{ display: "block", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>{r.quarter} quarterly review</span>
               </div>
             </div>
           ))}

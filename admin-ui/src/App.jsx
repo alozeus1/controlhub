@@ -42,6 +42,7 @@ import People from "./pages/People";
 import PersonDetail from "./pages/PersonDetail";
 import InternshipProgram from "./pages/InternshipProgram";
 import InternOps from "./pages/InternOps";
+import TeamLeadAssignments from "./pages/TeamLeadAssignments";
 import MyJourney from "./pages/MyJourney";
 import ExportsReports from "./pages/ExportsReports";
 import AgentRequests from "./pages/AgentRequests";
@@ -107,6 +108,7 @@ export default function App() {
             <Route path="/ui/people/:id" element={<PersonDetail />} />
             <Route path="/ui/internship" element={<InternshipProgram />} />
             <Route path="/ui/intern-ops" element={<InternOps />} />
+            <Route path="/ui/team-assignments" element={<TeamLeadAssignments />} />
             <Route path="/ui/my-journey" element={<MyJourney />} />
             <Route path="/ui/exports-reports" element={<ExportsReports />} />
             <Route path="/ui/agent-requests" element={<AgentRequests />} />

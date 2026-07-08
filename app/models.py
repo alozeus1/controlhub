@@ -1821,3 +1821,64 @@ class MilestoneReview(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+EMPLOYEE_REVIEW_DECISIONS = {"retain", "extend", "promote", "terminate"}
+
+
+class EmployeeReview(db.Model):
+    """Quarterly performance review for non-intern employees (including
+    PoCs/team leads). One review per person per calendar quarter, aligned
+    company-wide regardless of start date."""
+    __tablename__ = "employee_review"
+    __table_args__ = (
+        db.UniqueConstraint("person_id", "quarter", name="uq_employee_review_person_quarter"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=False)
+    quarter = db.Column(db.String(10), nullable=False)  # e.g. 2026-Q3
+    period_start = db.Column(db.Date, nullable=False)
+    period_end = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(30), default="pending_self", nullable=False)  # pending_self|pending_manager|completed
+    self_report = db.Column(db.JSON, nullable=True)
+    score = db.Column(db.Integer, nullable=True)
+    strengths = db.Column(db.Text, nullable=True)
+    concerns = db.Column(db.Text, nullable=True)
+    action_items = db.Column(db.JSON, nullable=True)
+    manager_notes = db.Column(db.Text, nullable=True)
+    ai_summary = db.Column(db.Text, nullable=True)
+    decision = db.Column(db.String(20), nullable=True)  # retain|extend|promote|terminate
+    new_title = db.Column(db.String(150), nullable=True)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    decision_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    person = db.relationship("Person", backref=db.backref("employee_reviews", lazy="dynamic"))
+    reviewer = db.relationship("User", backref="reviewed_employee_reviews")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "person_name": self.person.full_name if self.person else None,
+            "quarter": self.quarter,
+            "period_start": self.period_start.isoformat() if self.period_start else None,
+            "period_end": self.period_end.isoformat() if self.period_end else None,
+            "status": self.status,
+            "self_report": self.self_report or {},
+            "score": self.score,
+            "strengths": self.strengths,
+            "concerns": self.concerns,
+            "action_items": self.action_items or [],
+            "manager_notes": self.manager_notes,
+            "ai_summary": self.ai_summary,
+            "decision": self.decision,
+            "new_title": self.new_title,
+            "reviewer_id": self.reviewer_id,
+            "reviewer_email": self.reviewer.email if self.reviewer else None,
+            "decision_date": self.decision_date.isoformat() if self.decision_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }

@@ -317,6 +317,17 @@ ControlHub has been evolved to include a comprehensive SaaS-style organization m
 - **My Journey** (`/ui/my-journey`, `GET /admin/internship/my-journey`): self-service page for any authenticated user with a linked person profile. Interns (role `user`) land here after login and see only this page. It shows their profile, onboarding checklist (they can complete their own `owner_role: intern` items), biweekly review history, and **released** milestone results. Draft AI text, disciplinary notes, risk flags, and growth summaries are never included in the intern payload.
 - **Intern Ops** (`/ui/intern-ops`, `GET /admin/internship/ops-summary`): manager action center — reviews awaiting grading, overdue intern reflections, overdue onboarding items, draft milestone decisions, milestones due for compilation (~3/6 months in), and an at-risk board (risk flags or low recent scores). `people_manager` sees direct reports only; hr_admin/admin/superadmin see the whole program.
 
+### Phase 3: PoC/Team Lead workflow & employee quarterly reviews
+
+Two people-tracks, split by `employment.employment_type`:
+
+- **Interns** — unchanged: onboarding, biweekly reviews (intern → PoC → manager), 3/6-month milestones, convert/extend/reassign/release.
+- **Employees** (everyone else, including PoCs/team leads themselves) — a **quarterly performance review** instead of the intern track:
+  - Reviews are auto-created idempotently for every active non-intern employee, **company-wide, aligned to the calendar quarter** (Q1 Jan–Mar … Q4 Oct–Dec) regardless of each person's start date. The ensure step (`POST /admin/performance/reviews/ensure`) runs lazily whenever a manager's ops dashboard or an employee's own workspace loads — no background worker required. Wire a daily scheduled call (e.g. a Render Cron Job) to the same endpoint in production for a fully hands-off cadence.
+  - Lifecycle: `pending_self` → employee submits a self-report (`POST /admin/performance/reviews/<id>/self-submit`) → `pending_manager` → manager scores 1–5 and picks a **decision**: `retain` (no-op), `extend` (+90 days on `end_date`), `promote` (requires a `new_title`, updates the employment title), or `terminate` (offboards; routes through the governance approval queue when a policy on `people.finalize_employee_review` is active, mirroring intern milestone gating).
+  - Visible to the employee (own), their manager, and HR/admin only — never to a PoC/team lead unless the employee is a direct report.
+- **PoC / Team Lead role** (`role: team_lead`, level 30): assigned per-intern via `employment.poc_person_id`. A team lead can browse the full People roster read-only, but can only grade/assess the interns assigned to them (`PUT /admin/internship/people/<id>/poc` to assign/unassign; `GET /admin/internship/team-lead-assignments` for the roster view at `/ui/team-assignments`). As employees themselves, PoCs are reviewed through the same quarterly workflow as anyone else — they see their own review in **My Journey** alongside their intern review queue in **Team Ops** (`/ui/intern-ops`, renamed from Intern Ops).
+
 ### Integration environment flags
 
 The Taiga/Mattermost/Email providers in `app/utils/integrations_mock.py` run in mock mode by default — no credentials required in dev/test, nothing leaves the app. Real delivery is enabled per provider; on any delivery failure the code falls back to mock behavior and records the error in the audit details:

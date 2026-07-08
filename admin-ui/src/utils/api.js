@@ -135,11 +135,20 @@ async function uploadFile(path, file, onProgress = null) {
   });
 }
 
+// PATCH/PUT are tunneled as POST + X-HTTP-Method-Override because some
+// proxies, security tools, and extensions silently drop those verbs while
+// passing POST. The backend's MethodOverrideMiddleware restores the real
+// method before routing.
+const withOverride = (method, options = {}) => ({
+  ...options,
+  headers: { ...(options.headers || {}), "X-HTTP-Method-Override": method },
+});
+
 const api = {
   get: (path, options = {}) => request("GET", path, null, true, options),
   post: (path, body, options = {}) => request("POST", path, body, true, options),
-  put: (path, body, options = {}) => request("PUT", path, body, true, options),
-  patch: (path, body, options = {}) => request("PATCH", path, body, true, options),
+  put: (path, body, options = {}) => request("POST", path, body, true, withOverride("PUT", options)),
+  patch: (path, body, options = {}) => request("POST", path, body, true, withOverride("PATCH", options)),
   delete: (path, options = {}) => request("DELETE", path, null, true, options),
   upload: (path, file, onProgress) => uploadFile(path, file, onProgress),
 };

@@ -40,6 +40,7 @@ export default function PersonDetail() {
   const [convertForm, setConvertForm] = useState({ title: "", start_date: "", notes: "" });
 
   const activeEmployment = person?.active_employment || null;
+  const isIntern = activeEmployment?.employment_type === "intern";
   const [profileForm, setProfileForm] = useState({
     first_name: "",
     last_name: "",
@@ -89,6 +90,10 @@ export default function PersonDetail() {
   const [milestoneForm, setMilestoneForm] = useState({ review_type: "3_month" });
   const [selectedMilestone, setSelectedMilestone] = useState(null);
 
+  const [employeeReviews, setEmployeeReviews] = useState([]);
+  const [selectedEmployeeReview, setSelectedEmployeeReview] = useState(null);
+  const [employeeGradeForm, setEmployeeGradeForm] = useState({ score: 4, strengths: "", concerns: "", action_items: "", decision: "retain", new_title: "" });
+
   const hydrateForms = useCallback((personPayload) => {
     setProfileForm({
       first_name: personPayload.first_name || "",
@@ -131,7 +136,7 @@ export default function PersonDetail() {
   }, []);
 
   const fetchAll = useCallback(async () => {
-    const [personRes, checkinsRes, accessRes, logsRes, metadataRes, biweeklyRes, milestoneRes] = await Promise.all([
+    const [personRes, checkinsRes, accessRes, logsRes, metadataRes, biweeklyRes, milestoneRes, employeeReviewsRes] = await Promise.all([
       api.get(`/admin/people/${id}`),
       api.get(`/admin/people/${id}/checkins`),
       api.get(`/admin/people/${id}/access-assignments`),
@@ -139,6 +144,7 @@ export default function PersonDetail() {
       api.get("/admin/people/metadata"),
       api.get(`/admin/internship/reviews/biweekly?person_id=${id}`).catch(() => ({ data: { items: [] } })),
       api.get(`/admin/internship/reviews/milestone?person_id=${id}`).catch(() => ({ data: { items: [] } })),
+      api.get(`/admin/performance/reviews?person_id=${id}`).catch(() => ({ data: { items: [] } })),
     ]);
     const payload = personRes.data.person;
     setPerson(payload);
@@ -149,6 +155,7 @@ export default function PersonDetail() {
     setMetadata(metadataRes.data || {});
     setBiweeklyReviews(biweeklyRes.data.items || []);
     setMilestoneReviews(milestoneRes.data.items || []);
+    setEmployeeReviews(employeeReviewsRes.data.items || []);
     hydrateForms(payload);
 
     const [onboardingRes, completionRes, certificatesRes] = await Promise.allSettled([
@@ -343,6 +350,30 @@ export default function PersonDetail() {
       setSelectedMilestone(null);
       await refresh();
     } catch (err) { toast.error(err.message || "Finalization failed"); } finally { setSaving(false); }
+  };
+
+  const handleGradeEmployeeReview = async (reviewId) => {
+    try {
+      setSaving(true);
+      const actionItemsParsed = employeeGradeForm.action_items
+        ? employeeGradeForm.action_items.split("\n").map((line) => ({ task: line.trim() })).filter((x) => x.task)
+        : [];
+      const res = await api.post(`/admin/performance/reviews/${reviewId}/manager-submit`, {
+        score: Number(employeeGradeForm.score),
+        strengths: employeeGradeForm.strengths,
+        concerns: employeeGradeForm.concerns,
+        action_items: actionItemsParsed,
+        decision: employeeGradeForm.decision,
+        new_title: employeeGradeForm.decision === "promote" ? employeeGradeForm.new_title : undefined,
+      });
+      if (res.data?.code === "APPROVAL_REQUIRED") {
+        toast.info(res.data.message || "Approval required to finalize this decision");
+      } else {
+        toast.success(`Quarterly review completed: ${employeeGradeForm.decision}`);
+      }
+      setSelectedEmployeeReview(null);
+      await refresh();
+    } catch (err) { toast.error(err.message || "Grading failed"); } finally { setSaving(false); }
   };
 
   const handleSaveEmployment = async () => {
@@ -570,6 +601,8 @@ export default function PersonDetail() {
                </div>
             </div>
 
+            {isIntern && (
+            <>
             {/* SaaS Biweekly Reviews Card */}
             <div className="glass-panel">
               <div className="glass-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -714,6 +747,57 @@ export default function PersonDetail() {
                 ))}
               </div>
             </div>
+            </>
+            )}
+
+            {!isIntern && (
+            <div className="glass-panel">
+              <div className="glass-header"><h3>📊 Quarterly Performance Reviews</h3></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+                {employeeReviews.length === 0 ? <p className="text-muted">No quarterly reviews yet. One is created automatically each quarter.</p> : employeeReviews.map(rev => (
+                  <div key={rev.id} style={{ padding: '0.75rem', background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <strong style={{ fontSize: 'var(--font-size-sm)' }}>{rev.quarter}</strong>
+                      <span className={`badge ${rev.status === 'completed' ? 'badge-success' : 'badge-neutral'}`}>
+                        {rev.status}
+                      </span>
+                    </div>
+                    {rev.score && (
+                      <div style={{ fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+                        Score: <strong style={{ color: 'var(--color-primary)' }}>{rev.score}/5</strong>
+                        {rev.decision && <> • Decision: <strong style={{ textTransform: 'uppercase' }}>{rev.decision}</strong></>}
+                      </div>
+                    )}
+                    {rev.ai_summary && (
+                      <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', fontStyle: 'italic', margin: '0.25rem 0' }}>
+                        {rev.ai_summary}
+                      </p>
+                    )}
+                    {rev.status === 'pending_self' && (
+                      <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', margin: '0.25rem 0' }}>
+                        Waiting on the employee's self-report.
+                      </p>
+                    )}
+                    {rev.status === 'pending_manager' && (
+                      <button className="btn-glass" style={{ width: '100%', marginTop: '0.5rem', fontSize: 'var(--font-size-xs)' }} onClick={() => {
+                        setEmployeeGradeForm({
+                          score: rev.score || 4,
+                          strengths: rev.strengths || "",
+                          concerns: rev.concerns || "",
+                          action_items: (rev.action_items || []).map((a) => a.task).filter(Boolean).join("\n"),
+                          decision: "retain",
+                          new_title: "",
+                        });
+                        setSelectedEmployeeReview(rev);
+                      }}>
+                        Grade & Complete Review
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            )}
          </div>
 
         {/* Column 3: HR + IT Assets & Audit */}
@@ -879,6 +963,41 @@ export default function PersonDetail() {
         variant="danger"
         loading={saving}
       />
+
+      <Modal isOpen={!!selectedEmployeeReview} onClose={() => setSelectedEmployeeReview(null)} title="Quarterly Performance Review">
+        {selectedEmployeeReview && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+            <div>
+              <label className="input-label">Employee's self-report:</label>
+              <p style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)', background: 'var(--color-bg-tertiary)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                {selectedEmployeeReview.self_report?.summary || "No response submitted."}
+              </p>
+            </div>
+            <Select label="Score" value={employeeGradeForm.score} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, score: e.target.value }))}>
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - High</option>
+              <option value="3">3 - Satisfactory</option>
+              <option value="2">2 - Needs Improvement</option>
+              <option value="1">1 - Unsatisfactory</option>
+            </Select>
+            <Input label="Strengths" value={employeeGradeForm.strengths} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, strengths: e.target.value }))} />
+            <Input label="Concerns" value={employeeGradeForm.concerns} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, concerns: e.target.value }))} />
+            <TextArea label="Action Items (one per line)" rows={2} value={employeeGradeForm.action_items} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, action_items: e.target.value }))} />
+            <Select label="Decision" value={employeeGradeForm.decision} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, decision: e.target.value }))}>
+              <option value="retain">Retain / Continue</option>
+              <option value="extend">Extend Contract (+90 days)</option>
+              <option value="promote">Promote</option>
+              <option value="terminate">Terminate / Offboard</option>
+            </Select>
+            {employeeGradeForm.decision === "promote" && (
+              <Input label="New Title" placeholder="e.g. Senior Software Engineer" value={employeeGradeForm.new_title} onChange={(e) => setEmployeeGradeForm(f => ({ ...f, new_title: e.target.value }))} />
+            )}
+            <Button variant="primary" loading={saving} onClick={() => handleGradeEmployeeReview(selectedEmployeeReview.id)}>
+              Complete Review
+            </Button>
+          </div>
+        )}
+      </Modal>
     </motion.div>
   );
 }

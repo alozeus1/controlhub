@@ -66,3 +66,28 @@ def init_request_logging(app):
                 }
             )
         return response
+
+
+class MethodOverrideMiddleware:
+    """Unwrap POST requests carrying X-HTTP-Method-Override into their real
+    method before routing.
+
+    Some proxies, security tools, and browser extensions silently drop
+    non-standard HTTP verbs (PATCH in particular) while passing GET/POST.
+    The admin UI therefore tunnels PATCH/PUT as POST + override header; this
+    middleware restores the intended method server-side. Native PATCH/PUT
+    requests are unaffected.
+    """
+
+    ALLOWED_OVERRIDES = {"PATCH", "PUT", "DELETE"}
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        if environ.get("REQUEST_METHOD") == "POST":
+            override = environ.get("HTTP_X_HTTP_METHOD_OVERRIDE", "").upper()
+            if override in self.ALLOWED_OVERRIDES:
+                environ["controlhub.original_method"] = "POST"
+                environ["REQUEST_METHOD"] = override
+        return self.wsgi_app(environ, start_response)

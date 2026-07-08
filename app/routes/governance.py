@@ -593,6 +593,27 @@ def execute_approved_action(approval: ApprovalRequest, executor):
             "message": f"Finalized {milestone.review_type} review for {milestone.person.full_name}: {decision}",
         }
 
+    elif action == "people.finalize_employee_review":
+        from app.models import EmployeeReview
+        from app.routes.performance import _apply_employee_decision
+
+        review = EmployeeReview.query.get(request_data.get("review_id") or target_id)
+        if not review:
+            return {"success": False, "message": "Employee review not found"}
+        if review.status == "completed":
+            return {"success": False, "message": "Employee review already finalized"}
+
+        decision = request_data.get("decision")
+        if decision not in {"retain", "extend", "promote", "terminate"}:
+            return {"success": False, "message": f"Invalid decision: {decision}"}
+
+        review.score = request_data.get("score", review.score)
+        _apply_employee_decision(review, decision, request_data.get("new_title"), executor)
+        return {
+            "success": True,
+            "message": f"Finalized {review.quarter} review for {review.person.full_name}: {decision}",
+        }
+
     elif action == "secret.reveal":
         return {"success": True, "message": "Secret reveal approved"}
 
@@ -658,6 +679,7 @@ PROTECTED_ACTIONS = [
     "people.export_bulk",
     "people.issue_certificate",
     "people.finalize_milestone",
+    "people.finalize_employee_review",
     "secret.reveal",
     "agent.export",
     "agent.write_external",

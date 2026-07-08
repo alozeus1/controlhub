@@ -9,6 +9,7 @@ from app.models import (
     INTERNSHIP_COHORT_MEMBER_ROLES,
     INTERNSHIP_COHORT_STATUSES,
     INTERNSHIP_PROGRAM_STATUSES,
+    Employment,
     InternshipCertificate,
     InternshipCohort,
     InternshipCohortMember,
@@ -19,6 +20,7 @@ from app.models import (
     PersonOnboardingItem,
     BiweeklyReview,
     MilestoneReview,
+    User,
 )
 from app.utils.audit import log_action
 from app.utils.people_rbac import can_manage_person, is_hr_admin, is_poc_for
@@ -1677,7 +1679,6 @@ def internship_ops_summary():
     if error:
         return error
 
-    from app.models import Employment
     from app.utils.people_rbac import get_person_for_user
 
     actor = request.current_user
@@ -1828,3 +1829,84 @@ def internship_ops_summary():
             "at_risk": len(at_risk),
         },
     })
+
+
+# =============================================================================
+# TEAM LEAD (PoC) ASSIGNMENTS
+# =============================================================================
+
+@internship_bp.get("/internship/team-lead-assignments")
+@require_role("people_manager")
+def list_team_lead_assignments():
+    """Roster of every team_lead with the interns currently assigned to them,
+    plus the list of unassigned interns. Admin/manager-only."""
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    team_leads = User.query.filter_by(role="team_lead", is_active=True).order_by(User.email.asc()).all()
+    lead_rows = []
+    for lead in team_leads:
+        lead_person = Person.query.filter_by(user_id=lead.id).first()
+        assigned = []
+        if lead_person:
+            assigned = [
+                {"person_id": e.person_id, "full_name": e.person.full_name, "email": e.person.email,
+                 "intern_track": e.intern_track}
+                for e in Employment.query.filter_by(poc_person_id=lead_person.id, employment_type="intern").all()
+                if e.person and e.person.active_employment and e.person.active_employment.id == e.id
+            ]
+        lead_rows.append({
+            "user_id": lead.id,
+            "person_id": lead_person.id if lead_person else None,
+            "full_name": lead_person.full_name if lead_person else lead.email,
+            "email": lead.email,
+            "assigned_interns": assigned,
+        })
+
+    unassigned = [
+        {"person_id": e.person_id, "full_name": e.person.full_name, "email": e.person.email,
+         "intern_track": e.intern_track}
+        for e in Employment.query.filter_by(employment_type="intern", poc_person_id=None).all()
+        if e.person and e.person.active_employment and e.person.active_employment.id == e.id
+    ]
+
+    return jsonify({"team_leads": lead_rows, "unassigned_interns": unassigned})
+
+
+@internship_bp.put("/internship/people/<int:person_id>/poc")
+@require_role("people_manager")
+def assign_poc(person_id):
+    """Assign or unassign the PoC/team lead for an intern's active employment."""
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    person = Person.query.get_or_404(person_id)
+    employment = person.active_employment
+    if not employment or employment.employment_type != "intern":
+        return _validation_error(["Only active intern employments can have a PoC assigned"])
+
+    data = request.get_json() or {}
+    poc_person_id = data.get("poc_person_id")
+    if poc_person_id is not None:
+        poc_person = Person.query.get(poc_person_id)
+        if not poc_person:
+            return _validation_error(["poc_person_id not found"])
+        poc_user = User.query.filter_by(id=poc_person.user_id, role="team_lead").first() if poc_person.user_id else None
+        if not poc_user:
+            return _validation_error(["poc_person_id must reference a person whose linked user has the team_lead role"])
+
+    before = employment.poc_person_id
+    employment.poc_person_id = poc_person_id
+    db.session.commit()
+
+    log_action(
+        action="internship.poc_assigned" if poc_person_id else "internship.poc_unassigned",
+        actor=request.current_user,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"from_poc_person_id": before, "to_poc_person_id": poc_person_id},
+    )
+    return jsonify({"message": "PoC assignment updated", "employment": employment.to_dict()})

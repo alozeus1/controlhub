@@ -25,7 +25,8 @@ const getNavItems = (features, role) => {
         { to: "/ui/my-journey", icon: "users", label: "My Journey" },
       ]},
       { section: "Reviews", items: [
-        { to: "/ui/intern-ops", icon: "alert", label: "Intern Ops" },
+        { to: "/ui/intern-ops", icon: "alert", label: "Team Ops" },
+        { to: "/ui/people", icon: "users", label: "People" },
       ]},
     ];
   }
@@ -61,7 +62,8 @@ const getNavItems = (features, role) => {
       { to: "/ui/costs", icon: "currency", label: "Cost Tracker" },
       ...(features.people ? [{ to: "/ui/people", icon: "users", label: "People" }] : []),
       ...(features.internship_program ? [{ to: "/ui/internship", icon: "users", label: "Internship Program" }] : []),
-      ...(features.internship_program && MANAGER_ROLES.includes(role) ? [{ to: "/ui/intern-ops", icon: "alert", label: "Intern Ops" }] : []),
+      ...(features.internship_program && MANAGER_ROLES.includes(role) ? [{ to: "/ui/intern-ops", icon: "alert", label: "Team Ops" }] : []),
+      ...(features.internship_program && MANAGER_ROLES.includes(role) ? [{ to: "/ui/team-assignments", icon: "users", label: "Team Lead Assignments" }] : []),
       ...(features.agent_service ? [{ to: "/ui/exports-reports", icon: "report", label: "Exports & Reports" }] : []),
       ...(features.agent_service ? [{ to: "/ui/agent-requests", icon: "robot", label: "Agent Requests" }] : []),
     ]},

@@ -3,7 +3,7 @@ from flask_cors import CORS
 from config import get_config
 from app.routes.ui import ui_bp
 from app.extensions import db, migrate, jwt, mail, limiter
-from app.middleware import init_request_logging
+from app.middleware import init_request_logging, MethodOverrideMiddleware
 from app.utils.security_headers import init_security_headers
 import redis as redis_lib
 
@@ -12,6 +12,10 @@ def create_app():
     app = Flask(__name__)
     cfg = get_config()
     app.config.from_object(cfg)
+
+    # Restore tunneled PATCH/PUT/DELETE (sent as POST + X-HTTP-Method-Override)
+    # before routing — some client-side proxies/extensions drop those verbs.
+    app.wsgi_app = MethodOverrideMiddleware(app.wsgi_app)
 
     # CORS — read allowed origins from config (comma-separated env var)
     origins = [o.strip() for o in app.config.get("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -75,6 +79,7 @@ def create_app():
     from app.routes.costs import costs_bp
     from app.routes.people import people_bp
     from app.routes.internship import internship_bp
+    from app.routes.performance import performance_bp
     from app.routes.agent_service import agent_bp
 
     app.register_blueprint(general_bp)
@@ -98,6 +103,7 @@ def create_app():
     app.register_blueprint(costs_bp, url_prefix="/admin")
     app.register_blueprint(people_bp, url_prefix="/admin")
     app.register_blueprint(internship_bp, url_prefix="/admin")
+    app.register_blueprint(performance_bp, url_prefix="/admin")
     app.register_blueprint(agent_bp, url_prefix="/admin")
     app.register_blueprint(ui_bp, url_prefix="/ui")
 

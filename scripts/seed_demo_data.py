@@ -16,7 +16,9 @@ from app.models import (
     User, Person, Employment, OnboardingTemplateItem,
     PersonOnboardingItem, BiweeklyReview, MilestoneReview,
     InternshipCompletionChecklist, InternshipCertificate,
-    InternshipCohortMember, PerformanceCheckin, AccessAssignment,
+    InternshipCohort, InternshipCohortMember, InternshipProgram,
+    PerformanceCheckin, AccessAssignment,
+    EmployeeReview,
 )
 
 def seed_demo_data():
@@ -36,6 +38,7 @@ def seed_demo_data():
         OnboardingTemplateItem.query.delete()
         BiweeklyReview.query.delete()
         MilestoneReview.query.delete()
+        EmployeeReview.query.delete()
         Employment.query.delete()
         
         # Don't delete all users/people in case admin exists, but clear demo users
@@ -55,6 +58,13 @@ def seed_demo_data():
                 db.session.delete(p)
             u = User.query.filter_by(email=email).first()
             if u:
+                # Any cohorts/programs this demo user created (e.g. via manual
+                # UI testing) reference created_by_id NOT NULL — clean those up
+                # too, or deleting the user leaves a dangling/nulled FK.
+                for cohort in InternshipCohort.query.filter_by(created_by_id=u.id).all():
+                    InternshipCohortMember.query.filter_by(cohort_id=cohort.id).delete()
+                    db.session.delete(cohort)
+                InternshipProgram.query.filter_by(created_by_id=u.id).delete()
                 db.session.delete(u)
         db.session.commit()
 
@@ -105,6 +115,29 @@ def seed_demo_data():
             created_by_id=admin.id
         )
         db.session.add(poc_person)
+        db.session.commit()
+
+        # Employee Employment records for the manager and the PoC themselves,
+        # so the quarterly employee-review workflow applies to them too.
+        # Marcus (manager) has no manager of his own in this demo (top of chain).
+        mgr_self_emp = Employment(
+            person_id=mgr_person.id, employment_type="full_time",
+            status="active", title="Engineering Manager",
+            start_date=date.today() - timedelta(days=400),
+            created_by_id=admin.id
+        )
+        db.session.add(mgr_self_emp)
+
+        # Tessa (PoC) is managed by Marcus — she is reviewed like any employee
+        # even while she assesses her assigned interns.
+        poc_self_emp = Employment(
+            person_id=poc_person.id, employment_type="full_time",
+            status="active", title="Team Lead",
+            start_date=date.today() - timedelta(days=200),
+            manager_person_id=mgr_person.id,
+            created_by_id=admin.id
+        )
+        db.session.add(poc_self_emp)
         db.session.commit()
 
         # 4. Onboarding Templates
