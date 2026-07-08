@@ -32,6 +32,16 @@ def can_manage_person(actor, person: Person) -> Tuple[bool, str]:
     return False, "Insufficient permissions to manage this person"
 
 
+def is_poc_for(actor, person: Person) -> bool:
+    """True when the actor is the assigned PoC/team lead on the person's
+    active employment."""
+    actor_person = get_person_for_user(actor.id)
+    if not actor_person:
+        return False
+    employment = person.active_employment
+    return bool(employment and employment.poc_person_id == actor_person.id)
+
+
 def can_add_checkin(actor, person: Person) -> Tuple[bool, str]:
     """
     Mentors can add check-ins for interns they mentor.

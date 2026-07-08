@@ -233,9 +233,9 @@ export default function MyJourney() {
                         Submit Self Reflection
                       </Button>
                     )}
-                    {r.status === "pending_manager" && (
+                    {(r.status === "pending_manager" || r.status === "pending_poc") && (
                       <p className="text-muted" style={{ fontSize: "var(--font-size-xs)", margin: 0 }}>
-                        Submitted — waiting on your manager's evaluation.
+                        Submitted — {r.status === "pending_poc" ? "waiting on your team lead's assessment." : "waiting on your manager's evaluation."}
                       </p>
                     )}
                   </div>

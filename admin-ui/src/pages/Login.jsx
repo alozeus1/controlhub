@@ -33,9 +33,12 @@ export default function Login() {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Interns and basic users land on their self-service journey page;
-      // staff roles land on the admin dashboard.
-      window.location.href = data.user?.role === "user" ? "/ui/my-journey" : "/ui/dashboard";
+      // Interns land on their journey; PoCs/mentors on their review queue;
+      // staff roles on the admin dashboard.
+      const role = data.user?.role;
+      window.location.href = role === "user" ? "/ui/my-journey"
+        : (role === "team_lead" || role === "mentor") ? "/ui/intern-ops"
+        : "/ui/dashboard";
     } catch (err) {
       console.error("Login error:", err);
       setErrorMsg(err.response?.data?.error || "Unable to reach the server. Please try again.");

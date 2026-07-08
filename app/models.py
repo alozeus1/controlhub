@@ -11,6 +11,7 @@ ROLE_LEVELS = {
     "hr_admin": 80,
     "admin": 50,
     "people_manager": 40,
+    "team_lead": 30,  # PoC: employee/team lead who conducts intern biweekly reviews
     "mentor": 20,
     "viewer": 10,
     "user": 1,
@@ -1240,6 +1241,7 @@ class Employment(db.Model):
     payment_frequency = db.Column(db.String(50), nullable=True)
     manager_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
     mentor_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
+    poc_person_id = db.Column(db.Integer, db.ForeignKey("person.id"), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     updated_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
@@ -1249,6 +1251,7 @@ class Employment(db.Model):
     person = db.relationship("Person", foreign_keys=[person_id], backref="employments")
     manager = db.relationship("Person", foreign_keys=[manager_person_id], backref="managed_employments")
     mentor = db.relationship("Person", foreign_keys=[mentor_person_id], backref="mentored_employments")
+    poc = db.relationship("Person", foreign_keys=[poc_person_id], backref="poc_employments")
     creator = db.relationship("User", foreign_keys=[created_by_id], backref="created_employments")
     updater = db.relationship("User", foreign_keys=[updated_by_id], backref="updated_employments")
 
@@ -1275,6 +1278,8 @@ class Employment(db.Model):
             "manager_name": self.manager.full_name if self.manager else None,
             "mentor_person_id": self.mentor_person_id,
             "mentor_name": self.mentor.full_name if self.mentor else None,
+            "poc_person_id": self.poc_person_id,
+            "poc_name": self.poc.full_name if self.poc else None,
             "notes": self.notes,
             "created_by_id": self.created_by_id,
             "updated_by_id": self.updated_by_id,
@@ -1721,7 +1726,7 @@ class BiweeklyReview(db.Model):
     reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     period_start = db.Column(db.Date, nullable=False)
     period_end = db.Column(db.Date, nullable=False)
-    status = db.Column(db.String(30), default="pending_intern", nullable=False)  # pending_intern|pending_manager|completed
+    status = db.Column(db.String(30), default="pending_intern", nullable=False)  # pending_intern|pending_poc|pending_manager|completed
     intern_responses = db.Column(db.JSON, nullable=True)
     manager_questions = db.Column(db.JSON, nullable=True)
     manager_responses = db.Column(db.JSON, nullable=True)
@@ -1730,11 +1735,15 @@ class BiweeklyReview(db.Model):
     strengths = db.Column(db.Text, nullable=True)
     action_items = db.Column(db.JSON, nullable=True)
     ai_summary = db.Column(db.Text, nullable=True)
+    poc_reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    poc_notes = db.Column(db.Text, nullable=True)
+    poc_submitted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
 
     person = db.relationship("Person", backref=db.backref("biweekly_reviews", lazy="dynamic"))
-    reviewer = db.relationship("User", backref="reviewed_biweeklies")
+    reviewer = db.relationship("User", foreign_keys=[reviewer_id], backref="reviewed_biweeklies")
+    poc_reviewer = db.relationship("User", foreign_keys=[poc_reviewer_id], backref="poc_reviewed_biweeklies")
 
     def to_dict(self):
         return {
@@ -1754,6 +1763,10 @@ class BiweeklyReview(db.Model):
             "strengths": self.strengths,
             "action_items": self.action_items or [],
             "ai_summary": self.ai_summary,
+            "poc_reviewer_id": self.poc_reviewer_id,
+            "poc_reviewer_email": self.poc_reviewer.email if self.poc_reviewer else None,
+            "poc_notes": self.poc_notes,
+            "poc_submitted_at": self.poc_submitted_at.isoformat() if self.poc_submitted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }

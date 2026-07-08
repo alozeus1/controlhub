@@ -17,6 +17,19 @@ const getNavItems = (features, role) => {
     ];
   }
 
+  // PoCs/team leads and mentors get their review queue plus their own journey,
+  // not the full admin surface.
+  if (role === "team_lead" || role === "mentor") {
+    return [
+      { section: "My Space", items: [
+        { to: "/ui/my-journey", icon: "users", label: "My Journey" },
+      ]},
+      { section: "Reviews", items: [
+        { to: "/ui/intern-ops", icon: "alert", label: "Intern Ops" },
+      ]},
+    ];
+  }
+
   const items = [
     { section: "Overview", items: [
       { to: "/ui/dashboard", icon: "dashboard", label: "Dashboard" },

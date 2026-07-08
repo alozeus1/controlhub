@@ -26,6 +26,10 @@ class Config:
         # CORS
         self.CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001")
 
+        # Global request body cap (bytes). Prevents oversized JSON payloads;
+        # uploads have their own MAX_UPLOAD_SIZE check below this ceiling.
+        self.MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 64 * 1024 * 1024))
+
         # Redis
         self.REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         self.RATELIMIT_STORAGE_URL = os.environ.get("RATELIMIT_STORAGE_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
@@ -104,6 +108,17 @@ class Config:
 
             if missing:
                 print(f"FATAL: Missing required env vars for production: {', '.join(missing)}", file=sys.stderr)
+                sys.exit(1)
+
+            # HS256 requires >= 32-byte keys; short keys make tokens forgeable.
+            weak = [name for name, value in (("SECRET_KEY", self.SECRET_KEY), ("JWT_SECRET_KEY", self.JWT_SECRET_KEY)) if len(value) < 32]
+            if weak:
+                print(f"FATAL: {', '.join(weak)} must be at least 32 characters in production "
+                      f"(generate with: python -c \"import secrets; print(secrets.token_hex(32))\")", file=sys.stderr)
+                sys.exit(1)
+
+            if "*" in self.CORS_ORIGINS:
+                print("FATAL: CORS_ORIGINS must not contain '*' in production", file=sys.stderr)
                 sys.exit(1)
         else:
             # Dev defaults - insecure but convenient

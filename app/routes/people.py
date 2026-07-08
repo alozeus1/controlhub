@@ -88,6 +88,7 @@ def _employment_snapshot(emp: Employment):
         "payment_frequency": emp.payment_frequency,
         "manager_person_id": emp.manager_person_id,
         "mentor_person_id": emp.mentor_person_id,
+        "poc_person_id": emp.poc_person_id,
         "notes": emp.notes,
     }
 
@@ -310,10 +311,13 @@ def create_person():
 
     manager_person_id = data.get("manager_person_id")
     mentor_person_id = data.get("mentor_person_id")
+    poc_person_id = data.get("poc_person_id")
     if manager_person_id and not Person.query.get(manager_person_id):
         return _validation_error(["manager_person_id not found"])
     if mentor_person_id and not Person.query.get(mentor_person_id):
         return _validation_error(["mentor_person_id not found"])
+    if poc_person_id and not Person.query.get(poc_person_id):
+        return _validation_error(["poc_person_id not found"])
     if actor.role == "people_manager":
         actor_person = get_person_for_user(actor.id)
         if not actor_person:
@@ -353,6 +357,7 @@ def create_person():
         end_date=end_date,
         manager_person_id=manager_person_id,
         mentor_person_id=mentor_person_id,
+        poc_person_id=poc_person_id,
         notes=data.get("notes"),
         created_by_id=actor.id,
     )
@@ -508,6 +513,7 @@ def update_employment(person_id):
         "payment_frequency",
         "manager_person_id",
         "mentor_person_id",
+        "poc_person_id",
         "notes",
     }
     unexpected = sorted(set(data.keys()) - allowed_fields)
@@ -551,6 +557,10 @@ def update_employment(person_id):
         if data["mentor_person_id"] and not Person.query.get(data["mentor_person_id"]):
             return _validation_error(["mentor_person_id not found"])
         employment.mentor_person_id = data["mentor_person_id"]
+    if "poc_person_id" in data:
+        if data["poc_person_id"] and not Person.query.get(data["poc_person_id"]):
+            return _validation_error(["poc_person_id not found"])
+        employment.poc_person_id = data["poc_person_id"]
     if "notes" in data:
         employment.notes = data["notes"]
     if "start_date" in data:

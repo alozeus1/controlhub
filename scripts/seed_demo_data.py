@@ -14,7 +14,9 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     User, Person, Employment, OnboardingTemplateItem,
-    PersonOnboardingItem, BiweeklyReview, MilestoneReview
+    PersonOnboardingItem, BiweeklyReview, MilestoneReview,
+    InternshipCompletionChecklist, InternshipCertificate,
+    InternshipCohortMember, PerformanceCheckin, AccessAssignment,
 )
 
 def seed_demo_data():
@@ -38,12 +40,18 @@ def seed_demo_data():
         
         # Don't delete all users/people in case admin exists, but clear demo users
         demo_emails = [
-            "manager@example.com", "mentor@example.com", 
+            "manager@example.com", "mentor@example.com", "poc@example.com",
             "intern1@example.com", "intern2@example.com", "intern3@example.com"
         ]
         for email in demo_emails:
             p = Person.query.filter_by(email=email).first()
             if p:
+                # Remove dependent rows first (NOT NULL FKs on person_id)
+                InternshipCompletionChecklist.query.filter_by(person_id=p.id).delete()
+                InternshipCertificate.query.filter_by(person_id=p.id).delete()
+                InternshipCohortMember.query.filter_by(person_id=p.id).delete()
+                PerformanceCheckin.query.filter_by(person_id=p.id).delete()
+                AccessAssignment.query.filter_by(person_id=p.id).delete()
                 db.session.delete(p)
             u = User.query.filter_by(email=email).first()
             if u:
@@ -84,6 +92,19 @@ def seed_demo_data():
             created_by_id=admin.id
         )
         db.session.add(mentor_person)
+
+        # 3b. PoC / Team Lead — conducts biweekly reviews before the manager
+        poc_user = User(email="poc@example.com", role="team_lead")
+        poc_user.set_password("TeamLead123!")
+        db.session.add(poc_user)
+        db.session.flush()
+        poc_person = Person(
+            first_name="Tessa", last_name="Lead", email="poc@example.com",
+            user_id=poc_user.id, team="Engineering", department="Engineering",
+            taiga_username="tessa_lead", mattermost_username="tessa_mm",
+            created_by_id=admin.id
+        )
+        db.session.add(poc_person)
         db.session.commit()
 
         # 4. Onboarding Templates
@@ -132,6 +153,7 @@ def seed_demo_data():
             start_date=date.today() - timedelta(days=60), end_date=date.today() + timedelta(days=120),
             compensation_type="stipend", salary_amount=1500.00, currency="USD",
             manager_person_id=mgr_person.id, mentor_person_id=mentor_person.id,
+            poc_person_id=poc_person.id,
             created_by_id=admin.id
         )
         db.session.add(john_emp)
@@ -159,6 +181,7 @@ def seed_demo_data():
             start_date=date.today() - timedelta(days=30), end_date=date.today() + timedelta(days=150),
             compensation_type="stipend", salary_amount=1600.00, currency="USD",
             manager_person_id=mgr_person.id, mentor_person_id=mentor_person.id,
+            poc_person_id=poc_person.id,
             created_by_id=admin.id
         )
         db.session.add(alice_emp)

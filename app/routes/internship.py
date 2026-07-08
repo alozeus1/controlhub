@@ -21,7 +21,7 @@ from app.models import (
     MilestoneReview,
 )
 from app.utils.audit import log_action
-from app.utils.people_rbac import can_manage_person, is_hr_admin
+from app.utils.people_rbac import can_manage_person, is_hr_admin, is_poc_for
 from app.utils.rbac import require_role, require_active_user
 
 
@@ -68,6 +68,8 @@ def _can_view_person_internship(actor, person):
                 return True
             return actor.id == person.user_id
         return True
+    if actor.role == "team_lead":
+        return is_poc_for(actor, person) or actor.id == person.user_id
     return actor.id == person.user_id
 
 
@@ -1201,9 +1203,77 @@ def intern_submit_biweekly(review_id):
         return _validation_error(["responses dict is required"])
         
     review.intern_responses = responses
+
+    # If a PoC/team lead is assigned, they review first and pass the report
+    # to the manager; otherwise the review goes straight to the manager.
+    emp = person.active_employment
+    next_reviewer = emp.poc if (emp and emp.poc_person_id) else (emp.manager if emp else None)
+    review.status = "pending_poc" if (emp and emp.poc_person_id) else "pending_manager"
+    db.session.commit()
+
+    from app.utils.integrations_mock import send_mattermost_notification, send_email_notification
+    if next_reviewer:
+        if next_reviewer.mattermost_username:
+            send_mattermost_notification(
+                username=next_reviewer.mattermost_username,
+                template_type="manager_task",
+                context={"intern_name": person.full_name}
+            )
+        send_email_notification(
+            email=next_reviewer.email,
+            template_type="manager_reminder",
+            context={"intern_name": person.full_name}
+        )
+
+    log_action(
+        action="internship.review.intern_submitted",
+        actor=actor,
+        target_type="person",
+        target_id=person.id,
+        target_label=person.full_name,
+        details={"review_id": review.id, "routed_to": review.status},
+    )
+
+    return jsonify({"message": "Intern responses saved successfully", "review": review.to_dict()})
+
+
+@internship_bp.post("/internship/reviews/biweekly/<int:review_id>/poc-submit")
+@require_role("mentor")
+def poc_submit_biweekly(review_id):
+    """PoC/team lead assessment step: grade the intern's reflection and pass
+    the report on to the manager (status pending_poc -> pending_manager)."""
+    error = check_feature_enabled()
+    if error:
+        return error
+
+    review = BiweeklyReview.query.get_or_404(review_id)
+    actor = request.current_user
+    person = review.person
+
+    # The assigned PoC, or anyone with manage rights (manager/HR/admin), may
+    # record the PoC assessment.
+    allowed, _reason = _can_update_person_internship(actor, person)
+    if not allowed and not is_poc_for(actor, person):
+        return jsonify({"error": "Only the assigned PoC or a manager can submit this assessment", "code": "INSUFFICIENT_PERMISSIONS"}), 403
+
+    if review.status not in {"pending_poc", "pending_intern"}:
+        return _validation_error(["This review is not awaiting a PoC assessment"])
+
+    data = request.get_json() or {}
+    score = data.get("score_progress")
+    if score is None or not isinstance(score, int) or score < 1 or score > 5:
+        return _validation_error(["score_progress must be an integer between 1 and 5"])
+
+    review.score_progress = score
+    review.blockers = data.get("blockers")
+    review.strengths = data.get("strengths")
+    review.action_items = data.get("action_items", [])
+    review.poc_notes = data.get("notes")
+    review.poc_reviewer_id = actor.id
+    review.poc_submitted_at = datetime.utcnow()
     review.status = "pending_manager"
     db.session.commit()
-    
+
     from app.utils.integrations_mock import send_mattermost_notification, send_email_notification
     emp = person.active_employment
     if emp and emp.manager:
@@ -1218,17 +1288,17 @@ def intern_submit_biweekly(review_id):
             template_type="manager_reminder",
             context={"intern_name": person.full_name}
         )
-        
+
     log_action(
-        action="internship.review.intern_submitted",
+        action="internship.review.poc_submitted",
         actor=actor,
         target_type="person",
         target_id=person.id,
         target_label=person.full_name,
-        details={"review_id": review.id},
+        details={"review_id": review.id, "score": score},
     )
-    
-    return jsonify({"message": "Intern responses saved successfully", "review": review.to_dict()})
+
+    return jsonify({"message": "PoC assessment recorded and passed to the manager", "review": review.to_dict()})
 
 
 @internship_bp.post("/internship/reviews/biweekly/<int:review_id>/manager-submit")
@@ -1261,7 +1331,8 @@ def manager_submit_biweekly(review_id):
     blockers_text = review.blockers or ""
     strengths_text = review.strengths or ""
     
-    review.ai_summary = f"[DRAFT AI Summary] Intern reports: '{intern_answers[:100]}...'. Manager noted strengths: '{strengths_text}'. Key blocker identified: '{blockers_text}'. Score: {score}/5."
+    poc_note = f" PoC assessment by {review.poc_reviewer.email}." if review.poc_reviewer else ""
+    review.ai_summary = f"[DRAFT AI Summary] Intern reports: '{intern_answers[:100]}...'. Manager noted strengths: '{strengths_text}'. Key blocker identified: '{blockers_text}'. Score: {score}/5.{poc_note}"
     review.status = "completed"
     review.completed_at = datetime.utcnow()
     
@@ -1596,12 +1667,12 @@ def my_journey():
 
 
 @internship_bp.get("/internship/ops-summary")
-@require_role("people_manager")
+@require_role("mentor")
 def internship_ops_summary():
-    """Manager action center: pending grading, overdue reflections, overdue
-    onboarding, draft milestone decisions, milestones due for compilation, and
-    at-risk interns. HR admins/admins see the whole program; people_managers
-    only their direct reports."""
+    """Action center: pending grading, overdue reflections, overdue onboarding,
+    draft milestone decisions, milestones due for compilation, and at-risk
+    interns. HR admins/admins see the whole program; people_managers their
+    direct reports; team leads (PoCs) and mentors the interns assigned to them."""
     error = check_feature_enabled()
     if error:
         return error
@@ -1620,10 +1691,21 @@ def internship_ops_summary():
             return jsonify({
                 "action_queue": [], "overdue_reflections": [], "overdue_onboarding": [],
                 "pending_decisions": [], "milestones_due": [], "at_risk": [],
+                "counts": {"action_queue": 0, "overdue_reflections": 0, "overdue_onboarding": 0,
+                           "pending_decisions": 0, "milestones_due": 0, "at_risk": 0},
                 "scope": "none", "message": "No linked person profile for your account",
             })
+        # In scope: anyone whose active employment lists the actor as manager,
+        # PoC, or mentor.
         scoped_ids = {
-            e.person_id for e in Employment.query.filter_by(manager_person_id=actor_person.id).all()
+            e.person_id
+            for e in Employment.query.filter(
+                or_(
+                    Employment.manager_person_id == actor_person.id,
+                    Employment.poc_person_id == actor_person.id,
+                    Employment.mentor_person_id == actor_person.id,
+                )
+            ).all()
             if e.person and e.person.active_employment and e.person.active_employment.id == e.id
         }
 
@@ -1640,11 +1722,13 @@ def internship_ops_summary():
             "intern_track": emp.intern_track if emp else None,
         }
 
-    # 1. Biweekly reviews waiting on the manager
+    # 1. Biweekly reviews waiting on a reviewer — PoC assessments and manager
+    # grading are both actionable; `stage` says which step each item is at.
     action_queue = [
         {**person_ref(r.person), "review_id": r.id,
+         "stage": "poc" if r.status == "pending_poc" else "manager",
          "period_start": r.period_start.isoformat(), "period_end": r.period_end.isoformat()}
-        for r in BiweeklyReview.query.filter_by(status="pending_manager").all()
+        for r in BiweeklyReview.query.filter(BiweeklyReview.status.in_(["pending_poc", "pending_manager"])).all()
         if in_scope(r.person_id)
     ]
 

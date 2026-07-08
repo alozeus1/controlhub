@@ -74,6 +74,7 @@ export default function PersonDetail() {
     payment_frequency: "",
     manager_person_id: "",
     mentor_person_id: "",
+    poc_person_id: "",
     notes: "",
   });
 
@@ -124,6 +125,7 @@ export default function PersonDetail() {
       payment_frequency: emp.payment_frequency || "",
       manager_person_id: emp.manager_person_id || "",
       mentor_person_id: emp.mentor_person_id || "",
+      poc_person_id: emp.poc_person_id || "",
       notes: emp.notes || "",
     });
   }, []);
@@ -286,6 +288,25 @@ export default function PersonDetail() {
     } catch (err) { toast.error(err.message || "Grading failed"); } finally { setSaving(false); }
   };
 
+  const handlePocGradeBiweekly = async (reviewId) => {
+    try {
+      setSaving(true);
+      const actionItemsParsed = managerGradeForm.action_items
+        ? managerGradeForm.action_items.split("\n").map(line => ({ task: line.trim(), due: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] })).filter(x => x.task)
+        : [];
+      await api.post(`/admin/internship/reviews/biweekly/${reviewId}/poc-submit`, {
+        score_progress: Number(managerGradeForm.score_progress),
+        blockers: managerGradeForm.blockers,
+        strengths: managerGradeForm.strengths,
+        action_items: actionItemsParsed,
+        notes: managerGradeForm.notes,
+      });
+      toast.success("PoC assessment recorded and passed to the manager");
+      setSelectedBiweekly(null);
+      await refresh();
+    } catch (err) { toast.error(err.message || "PoC submission failed"); } finally { setSaving(false); }
+  };
+
   const handleCompileMilestone = async () => {
     try {
       setSaving(true);
@@ -331,6 +352,7 @@ export default function PersonDetail() {
         ...employmentForm,
         manager_person_id: employmentForm.manager_person_id ? Number(employmentForm.manager_person_id) : null,
         mentor_person_id: employmentForm.mentor_person_id ? Number(employmentForm.mentor_person_id) : null,
+        poc_person_id: employmentForm.poc_person_id ? Number(employmentForm.poc_person_id) : null,
       });
       toast.success("Employment updated");
       await refresh();
@@ -430,6 +452,10 @@ export default function PersonDetail() {
                <Input label="Title" value={employmentForm.title} onChange={(e) => setEmploymentForm((f) => ({ ...f, title: e.target.value }))} />
                <Input label="Start Date" type="date" value={employmentForm.start_date || ""} onChange={(e) => setEmploymentForm((f) => ({ ...f, start_date: e.target.value }))} />
                <Select label="Manager" value={employmentForm.manager_person_id || ""} onChange={(e) => setEmploymentForm((f) => ({ ...f, manager_person_id: e.target.value }))}>
+                 <option value="">Unassigned</option>
+                 {(metadata.managers || []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+               </Select>
+               <Select label="PoC / Team Lead" value={employmentForm.poc_person_id || ""} onChange={(e) => setEmploymentForm((f) => ({ ...f, poc_person_id: e.target.value }))}>
                  <option value="">Unassigned</option>
                  {(metadata.managers || []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                </Select>
@@ -579,8 +605,22 @@ export default function PersonDetail() {
                         Submit Intern Reflection
                       </button>
                     )}
-                    {rev.status === 'pending_manager' && (
+                    {rev.status === 'pending_poc' && (
                       <button className="btn-glass" style={{ width: '100%', marginTop: '0.5rem', fontSize: 'var(--font-size-xs)' }} onClick={() => setSelectedBiweekly(rev)}>
+                        PoC Review & Pass to Manager
+                      </button>
+                    )}
+                    {rev.status === 'pending_manager' && (
+                      <button className="btn-glass" style={{ width: '100%', marginTop: '0.5rem', fontSize: 'var(--font-size-xs)' }} onClick={() => {
+                        setManagerGradeForm({
+                          score_progress: rev.score_progress || 5,
+                          blockers: rev.blockers || "",
+                          strengths: rev.strengths || "",
+                          action_items: (rev.action_items || []).map((a) => a.task).filter(Boolean).join("\n"),
+                          notes: "",
+                        });
+                        setSelectedBiweekly(rev);
+                      }}>
                         Grade & Complete Review
                       </button>
                     )}
@@ -753,9 +793,43 @@ export default function PersonDetail() {
               </div>
             )}
 
+            {selectedBiweekly.status === 'pending_poc' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h4>PoC / Team Lead Assessment</h4>
+                <div>
+                  <label className="input-label">Intern Accomplishments Reflection:</label>
+                  <p style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)', background: 'var(--color-bg-tertiary)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                    {selectedBiweekly.intern_responses?.accomplishments || "No response submitted."}
+                  </p>
+                </div>
+                <Select label="Progress Score" value={managerGradeForm.score_progress} onChange={(e) => setManagerGradeForm(f => ({ ...f, score_progress: e.target.value }))}>
+                  <option value="5">5 - Excellent (Exceeding expectations)</option>
+                  <option value="4">4 - High (Meeting expectations fully)</option>
+                  <option value="3">3 - Satisfactory (Minor gaps)</option>
+                  <option value="2">2 - Needs Improvement (Unresolved blockers)</option>
+                  <option value="1">1 - Unsatisfactory (Significant concerns)</option>
+                </Select>
+                <Input label="Blockers identified" placeholder="None" value={managerGradeForm.blockers} onChange={(e) => setManagerGradeForm(f => ({ ...f, blockers: e.target.value }))} />
+                <Input label="Strengths demonstrated" placeholder="Adaptability, velocity" value={managerGradeForm.strengths} onChange={(e) => setManagerGradeForm(f => ({ ...f, strengths: e.target.value }))} />
+                <TextArea label="Action Items (one per line)" rows={2} value={managerGradeForm.action_items} onChange={(e) => setManagerGradeForm(f => ({ ...f, action_items: e.target.value }))} />
+                <TextArea label="Notes for the manager" rows={2} placeholder="Context the manager should know before finalizing..." value={managerGradeForm.notes} onChange={(e) => setManagerGradeForm(f => ({ ...f, notes: e.target.value }))} />
+                <Button variant="primary" loading={saving} onClick={() => handlePocGradeBiweekly(selectedBiweekly.id)}>
+                  Submit Assessment & Pass to Manager
+                </Button>
+              </div>
+            )}
+
             {selectedBiweekly.status === 'pending_manager' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <h4>Manager Progress Grading</h4>
+                {selectedBiweekly.poc_reviewer_id && (
+                  <div style={{ background: 'var(--color-bg-tertiary)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--color-primary)' }}>
+                    <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold' }}>PoC assessment ({selectedBiweekly.poc_reviewer_email})</div>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0.25rem 0 0' }}>
+                      Suggested score: {selectedBiweekly.score_progress}/5{selectedBiweekly.poc_notes ? ` — ${selectedBiweekly.poc_notes}` : ""}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="input-label">Intern Accomplishments Reflection:</label>
                   <p style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)', background: 'var(--color-bg-tertiary)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>

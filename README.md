@@ -304,7 +304,7 @@ CI note:
 ControlHub has been evolved to include a comprehensive SaaS-style organization management module:
 
 - **Unified Onboarding**: One-click checklist initialization from active templates with per-item owners and due dates. Initialization applies templates whose `role_target` matches the person's employment type (`intern` vs `employee`, or `all`).
-- **Biweekly Reflections & Reviews**: Structured progress checks where interns submit self-reflections, and managers grade performance (1-5), detail blockers, and set action items.
+- **Biweekly Reflections & Reviews**: Structured progress checks where interns submit self-reflections. If a PoC/team lead (`role: team_lead`, `employment.poc_person_id`) is assigned, they assess first (score, strengths, blockers, action items, notes) and pass the report to the manager, who finalizes (`pending_intern → pending_poc → pending_manager → completed`). Interns without a PoC route straight to the manager.
 - **AI-Assisted Summaries**: Behind-the-scenes draft review compilation using AI, featuring human-in-the-loop approvals.
 - **Milestone Scorecards**: High-fidelity 3-month and 6-month scorecard compilation incorporating average biweekly grades, onboarding completeness, and integration activity telemetry.
 - **Integration Mocks**:
@@ -329,7 +329,8 @@ Every notification/fetch attempt — mock or real — is written to the audit lo
 
 ### RBAC notes for reviews & onboarding
 
-- Biweekly/milestone review reads and writes are scoped: HR admins/admins see everything; `people_manager`/`mentor` only their direct reports; other users only their own linked person profile.
+- Biweekly/milestone review reads and writes are scoped: HR admins/admins see everything; `people_manager`/`mentor` only their direct reports; `team_lead` (PoC) only the interns whose active employment lists them as PoC; other users only their own linked person profile.
+- PoCs can assess biweekly reviews and see their queue in Intern Ops, but cannot open review periods, compile milestones, or make milestone decisions — those remain manager/HR actions.
 - Interns submit biweekly self-reflections through `POST /admin/internship/reviews/biweekly/<id>/intern-submit` (any authenticated active user, own profile only). Intern accounts (role `user`) cannot access the other admin listing endpoints or the admin UI.
 - AI summaries/recommendations are draft-only. A milestone decision requires the draft recommendation to be explicitly approved first, then a human `finalize` call; released reviews cannot be re-finalized. An active governance policy on `people.finalize_milestone` additionally routes finalization through the approval queue.
 
@@ -347,6 +348,6 @@ python scripts/seed_demo_data.py
 
 > **Warning:** the seed script clears the onboarding, employment, and review tables before seeding. It refuses to run when `ENVIRONMENT=production` (override with `SEED_DEMO_FORCE=1`).
 
-Seeded demo accounts (all fake, `example.com` addresses): `admin@example.com` / `Admin123!` (created only if no admin exists), `manager@example.com` / `Manager123!`, `mentor@example.com` / `Mentor123!`, and `intern1..3@example.com` (`Intern123!`; intern3 uses `Bob1234!`).
+Seeded demo accounts (all fake, `example.com` addresses): `admin@example.com` / `Admin123!` (created only if no admin exists), `manager@example.com` / `Manager123!`, `poc@example.com` / `TeamLead123!` (PoC/team lead for John & Alice), `mentor@example.com` / `Mentor123!`, and `intern1..3@example.com` (`Intern123!`; intern3 uses `Bob1234!`).
 
 This README helps new developers spin up the system and understand the module layout quickly.

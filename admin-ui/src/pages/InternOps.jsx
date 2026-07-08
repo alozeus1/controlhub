@@ -95,9 +95,10 @@ export default function InternOps() {
                 <PersonLink item={item} />
                 <span style={{ display: "block", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
                   {item.period_start} to {item.period_end}{item.intern_track ? ` • ${item.intern_track}` : ""}
+                  {item.stage === "poc" ? " • awaiting PoC assessment" : " • awaiting manager grading"}
                 </span>
               </div>
-              <Link to={`/ui/people/${item.person_id}`} className="badge badge-neutral">Grade</Link>
+              <Link to={`/ui/people/${item.person_id}`} className="badge badge-neutral">{item.stage === "poc" ? "Assess" : "Grade"}</Link>
             </div>
           ))}
         </SectionPanel>
