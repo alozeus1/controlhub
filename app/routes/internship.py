@@ -23,6 +23,7 @@ from app.models import (
     User,
 )
 from app.utils.audit import log_action
+from app.utils.notify import notify_user
 from app.utils.people_rbac import can_manage_person, is_hr_admin, is_poc_for
 from app.utils.rbac import require_role, require_active_user
 
@@ -1226,6 +1227,15 @@ def intern_submit_biweekly(review_id):
             template_type="manager_reminder",
             context={"intern_name": person.full_name}
         )
+        notify_user(
+            next_reviewer.user_id,
+            "biweekly_ready_for_review",
+            f"{person.full_name} submitted a biweekly reflection",
+            body=f"Period {review.period_start} to {review.period_end} is ready for your {'assessment' if review.status == 'pending_poc' else 'review'}.",
+            link=f"/ui/people/{person.id}",
+            target_type="biweekly_review",
+            target_id=review.id,
+        )
 
     log_action(
         action="internship.review.intern_submitted",
@@ -1290,6 +1300,15 @@ def poc_submit_biweekly(review_id):
             template_type="manager_reminder",
             context={"intern_name": person.full_name}
         )
+        notify_user(
+            emp.manager.user_id,
+            "biweekly_ready_for_review",
+            f"{actor.email} passed {person.full_name}'s biweekly review to you",
+            body=f"Score {score}/5. Period {review.period_start} to {review.period_end}.",
+            link=f"/ui/people/{person.id}",
+            target_type="biweekly_review",
+            target_id=review.id,
+        )
 
     log_action(
         action="internship.review.poc_submitted",
@@ -1348,7 +1367,17 @@ def manager_submit_biweekly(review_id):
         target_label=review.person.full_name,
         details={"review_id": review.id, "score": score},
     )
-    
+
+    notify_user(
+        review.person.user_id,
+        "biweekly_completed",
+        "Your biweekly review is complete",
+        body=f"Score: {score}/5. Period {review.period_start} to {review.period_end}.",
+        link="/ui/my-journey",
+        target_type="biweekly_review",
+        target_id=review.id,
+    )
+
     return jsonify({"message": "Manager review completed", "review": review.to_dict()})
 
 
@@ -1535,6 +1564,17 @@ def _finalize_milestone(milestone, decision, actor):
         target_label=person.full_name,
         details={"milestone_id": milestone.id, "decision": decision},
     )
+
+    notify_user(
+        person.user_id,
+        "milestone_decided",
+        f"Your {milestone.review_type.replace('_', ' ')} milestone decision is in",
+        body=f"Decision: {decision}.",
+        link="/ui/my-journey",
+        target_type="milestone_review",
+        target_id=milestone.id,
+    )
+
     return milestone
 
 

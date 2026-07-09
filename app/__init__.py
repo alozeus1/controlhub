@@ -80,6 +80,7 @@ def create_app():
     from app.routes.people import people_bp
     from app.routes.internship import internship_bp
     from app.routes.performance import performance_bp
+    from app.routes.notifications_inbox import notifications_inbox_bp
     from app.routes.agent_service import agent_bp
 
     app.register_blueprint(general_bp)
@@ -104,6 +105,7 @@ def create_app():
     app.register_blueprint(people_bp, url_prefix="/admin")
     app.register_blueprint(internship_bp, url_prefix="/admin")
     app.register_blueprint(performance_bp, url_prefix="/admin")
+    app.register_blueprint(notifications_inbox_bp, url_prefix="/admin")
     app.register_blueprint(agent_bp, url_prefix="/admin")
     app.register_blueprint(ui_bp, url_prefix="/ui")
 

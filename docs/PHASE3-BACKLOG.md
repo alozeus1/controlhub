@@ -7,12 +7,21 @@ toasts, timestamps render in the viewer's local timezone, draft-recommendation
 approval can be revoked while a review is a draft, and the onboarding radar
 only counts templates targeting the person's role.
 
-## 1. Notification system (high)
-- In-app notification bell for admins, managers, and interns.
-- Notify on every action pertaining to the user's own profile/queue:
-  review opened, reflection submitted, review graded, milestone compiled,
-  decision released, onboarding item overdue, approval requested/decided.
-- Notifications clear when addressed, or can be dismissed manually.
+## 1. Notification system (high) — SHIPPED 2026-07-09
+- In-app notification bell (TopNav, all roles) with unread badge, dropdown,
+  mark-all-read, and per-item dismiss/delete. Polls every 30s.
+- Fires at the same points audit logs already do: biweekly submitted to
+  PoC/manager, biweekly graded (notifies intern), milestone decision released
+  (notifies intern), employee self-report submitted (notifies manager),
+  employee review decided (notifies employee), approval requested (notifies
+  everyone at/above the policy's approver_role), approval approved/rejected
+  (notifies the requester).
+- Per-user toggle in Settings (`PATCH /auth/me {notifications_enabled}`)
+  suppresses new notifications for that account; existing email/Mattermost
+  mocks are unaffected.
+- Not yet covered: onboarding-item-overdue push (state-based, not
+  event-based — would need the scheduler described in item 8 below; the ops
+  dashboards already surface overdue items on-demand).
 - Per-user toggle in Settings to enable/disable notification alerts.
 - Note: a `notification` model/channel system already exists in the backend
   (FEATURE_NOTIFICATIONS); wire the internship events into it rather than

@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import Policy, ApprovalRequest, ApprovalDecision, ROLE_LEVELS
 from app.utils.rbac import require_role
 from app.utils.audit import log_action
+from app.utils.notify import notify_user, notify_role_at_least
 
 governance_bp = Blueprint("governance", __name__)
 
@@ -284,6 +285,17 @@ def approve_request(request_id):
         execution_result = execute_approved_action(approval, actor)
 
         db.session.commit()
+
+        notify_user(
+            approval.requester_id,
+            "approval_decided",
+            f"Your request was approved: {approval.action}",
+            body=f"{approval.target_label or ''}",
+            link="/ui/approvals",
+            target_type="approval_request",
+            target_id=approval.id,
+        )
+
         return jsonify({
             "message": "Request approved and executed",
             "approval": approval.to_dict(),
@@ -357,6 +369,16 @@ def reject_request(request_id):
         details={"comment": data.get("comment", "")},
     )
 
+    notify_user(
+        approval.requester_id,
+        "approval_decided",
+        f"Your request was rejected: {approval.action}",
+        body=data.get("comment") or approval.target_label or "",
+        link="/ui/approvals",
+        target_type="approval_request",
+        target_id=approval.id,
+    )
+
     return jsonify({
         "message": "Request rejected",
         "approval": approval.to_dict(),
@@ -404,6 +426,17 @@ def check_policy(action: str, actor, target_type: str = None, target_id: int = N
         target_id=approval.id,
         target_label=f"{action} on {target_label}",
         details={"policy_id": policy.id, "policy_name": policy.name},
+    )
+
+    notify_role_at_least(
+        policy.approver_role,
+        "approval_requested",
+        f"Approval needed: {action}",
+        body=f"Requested by {actor.email} — {target_label or ''}",
+        link="/ui/approvals",
+        target_type="approval_request",
+        target_id=approval.id,
+        exclude_user_id=actor.id,
     )
 
     return True, policy, approval

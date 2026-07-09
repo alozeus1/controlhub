@@ -83,6 +83,36 @@ def me():
     return jsonify(user.to_dict())
 
 
+@auth_bp.patch("/me")
+@require_active_user
+def update_me():
+    """Self-service preference updates. Currently limited to the in-app
+    notification bell toggle — not a general profile editor."""
+    user = request.current_user
+    data = request.get_json() or {}
+
+    allowed_fields = {"notifications_enabled"}
+    unexpected = sorted(set(data.keys()) - allowed_fields)
+    if unexpected:
+        return jsonify({
+            "error": "Validation failed",
+            "code": "VALIDATION_ERROR",
+            "details": [f"Unexpected fields: {', '.join(unexpected)}"],
+        }), 400
+
+    if "notifications_enabled" in data:
+        if not isinstance(data["notifications_enabled"], bool):
+            return jsonify({
+                "error": "Validation failed",
+                "code": "VALIDATION_ERROR",
+                "details": ["notifications_enabled must be a boolean"],
+            }), 400
+        user.notifications_enabled = data["notifications_enabled"]
+
+    db.session.commit()
+    return jsonify(user.to_dict())
+
+
 # ---------------------------------------------------------------------------
 # LOGOUT  — blocklist the access token in Redis
 # ---------------------------------------------------------------------------

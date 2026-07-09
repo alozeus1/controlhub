@@ -328,6 +328,15 @@ Two people-tracks, split by `employment.employment_type`:
   - Visible to the employee (own), their manager, and HR/admin only — never to a PoC/team lead unless the employee is a direct report.
 - **PoC / Team Lead role** (`role: team_lead`, level 30): assigned per-intern via `employment.poc_person_id`. A team lead can browse the full People roster read-only, but can only grade/assess the interns assigned to them (`PUT /admin/internship/people/<id>/poc` to assign/unassign; `GET /admin/internship/team-lead-assignments` for the roster view at `/ui/team-assignments`). As employees themselves, PoCs are reviewed through the same quarterly workflow as anyone else — they see their own review in **My Journey** alongside their intern review queue in **Team Ops** (`/ui/intern-ops`, renamed from Intern Ops).
 
+### Phase 3: In-app notifications
+
+A per-user notification inbox — separate from the ops-facing `NotificationChannel`/`AlertRule`/`AlertEvent` system in `app/services/notifications.py`, which broadcasts system events to admin-configured Slack/webhook/email channels. This one is personal: a bell icon (all roles, in `TopNav`) that fires for actions pertaining to the viewer's own profile or queue.
+
+- Triggers: biweekly review submitted to a PoC/manager, biweekly review graded (notifies the intern), milestone decision released (notifies the intern), employee quarterly self-report submitted (notifies the manager), employee quarterly review decided (notifies the employee), governance approval requested (notifies everyone at or above the policy's `approver_role`), approval approved/rejected (notifies the requester).
+- `GET /admin/notifications/inbox` (own notifications + unread count), `POST .../<id>/read`, `POST .../read-all`, `DELETE .../<id>`. The bell polls every 30 seconds — no background worker or websocket needed.
+- Per-user toggle: `PATCH /auth/me {"notifications_enabled": false}` (Settings → Profile → Notifications). Disabling it suppresses new in-app notifications for that account only; the existing mock Mattermost/email sends elsewhere are unaffected.
+- Not yet covered: overdue-onboarding push reminders (state-based, not event-based — needs the scheduler discussed below; the ops dashboards already surface overdue items on demand).
+
 ### Integration environment flags
 
 The Taiga/Mattermost/Email providers in `app/utils/integrations_mock.py` run in mock mode by default — no credentials required in dev/test, nothing leaves the app. Real delivery is enabled per provider; on any delivery failure the code falls back to mock behavior and records the error in the audit details:

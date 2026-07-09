@@ -24,6 +24,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), default="user", nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    notifications_enabled = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -49,6 +50,7 @@ class User(db.Model):
             "email": self.email,
             "role": self.role,
             "is_active": self.is_active,
+            "notifications_enabled": self.notifications_enabled,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -1881,4 +1883,40 @@ class EmployeeReview(db.Model):
             "decision_date": self.decision_date.isoformat() if self.decision_date else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class Notification(db.Model):
+    """Per-user in-app notification inbox item. Distinct from the ops-facing
+    NotificationChannel/AlertRule/AlertEvent system in app/services/notifications.py,
+    which broadcasts system events to admin-configured channels (Slack/webhook/email).
+    This is a personal inbox: one row per recipient, for actions pertaining to
+    their own profile or queue (review submitted/graded/decided, approval
+    requested/decided, etc.)."""
+    __tablename__ = "notification"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=True)
+    link = db.Column(db.String(255), nullable=True)
+    target_type = db.Column(db.String(50), nullable=True)
+    target_id = db.Column(db.Integer, nullable=True)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", backref=db.backref("notifications", lazy="dynamic"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "body": self.body,
+            "link": self.link,
+            "target_type": self.target_type,
+            "target_id": self.target_id,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

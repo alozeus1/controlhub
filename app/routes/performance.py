@@ -16,6 +16,7 @@ from flask import Blueprint, current_app, jsonify, request
 from app.extensions import db
 from app.models import Employment, EmployeeReview, Person, EMPLOYEE_REVIEW_DECISIONS
 from app.utils.audit import log_action
+from app.utils.notify import notify_user
 from app.utils.people_rbac import can_manage_person, is_hr_admin, get_person_for_user
 from app.utils.rbac import require_role, require_active_user
 
@@ -204,6 +205,15 @@ def self_submit_review(review_id):
             template_type="manager_reminder",
             context={"intern_name": person.full_name},
         )
+        notify_user(
+            emp.manager.user_id,
+            "employee_review_ready",
+            f"{person.full_name} submitted their {review.quarter} self-report",
+            body="Ready for your review and decision.",
+            link=f"/ui/people/{person.id}",
+            target_type="employee_review",
+            target_id=review.id,
+        )
 
     log_action(
         action="performance.self_submitted",
@@ -260,6 +270,17 @@ def _apply_employee_decision(review, decision, new_title, actor):
         target_label=person.full_name,
         details={"review_id": review.id, "quarter": review.quarter, "decision": decision, "score": review.score},
     )
+
+    notify_user(
+        person.user_id,
+        "employee_review_decided",
+        f"Your {review.quarter} performance review is complete",
+        body=f"Score: {review.score}/5. Decision: {decision}.",
+        link="/ui/my-journey",
+        target_type="employee_review",
+        target_id=review.id,
+    )
+
     return review
 
 

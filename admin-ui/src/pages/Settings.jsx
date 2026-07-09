@@ -13,6 +13,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("Profile");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifSaving, setNotifSaving] = useState(false);
   const toast = useToast();
 
   // Change password form state
@@ -34,6 +35,20 @@ export default function Settings() {
     };
     fetchUser();
   }, []);
+
+  const handleToggleNotifications = async () => {
+    const next = !user?.notifications_enabled;
+    try {
+      setNotifSaving(true);
+      const res = await api.patch("/auth/me", { notifications_enabled: next });
+      setUser(res.data);
+      toast.success(next ? "Notification bell enabled" : "Notification bell disabled");
+    } catch (err) {
+      toast.error(err.message || "Failed to update preference");
+    } finally {
+      setNotifSaving(false);
+    }
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -120,6 +135,33 @@ export default function Settings() {
                 ) : (
                   <p>Unable to load account information</p>
                 )}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader title="Notifications" subtitle="The in-app notification bell" />
+              <CardBody>
+                {loading ? (
+                  <p>Loading...</p>
+                ) : (
+                  <div className="settings-row">
+                    <span className="settings-label">Notification bell alerts</span>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={!!user?.notifications_enabled}
+                        disabled={notifSaving}
+                        onChange={handleToggleNotifications}
+                      />
+                      <span className="settings-toggle-slider" />
+                    </label>
+                  </div>
+                )}
+                <p className="text-muted" style={{ fontSize: "var(--font-size-xs)", marginTop: "0.5rem" }}>
+                  When on, you'll see a badge on the bell icon and receive in-app notifications
+                  for actions on your reviews, onboarding, and approvals. Turning this off stops
+                  new notifications from being created for your account.
+                </p>
               </CardBody>
             </Card>
 

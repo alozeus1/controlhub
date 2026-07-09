@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
 import logoIcon from "../assets/brand/logo-icon.svg";
 import AppIcon from "./ui/AppIcon";
+import NotificationBell from "./NotificationBell";
 import "./TopNav.css";
 
 const pageNames = {
@@ -102,6 +103,8 @@ export default function TopNav({ onMenuToggle }) {
 
       <div className="topnav-right">
         <span className={`topnav-env-badge ${envClass}`}>{envLabel}</span>
+
+        <NotificationBell />
 
         <div
           ref={dropdownRef}
