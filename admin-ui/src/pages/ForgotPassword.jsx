@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../utils/api";
 import controlhubLogo from "../assets/brand/controlhub-logo.svg";
-import "./Login.css";
+import "./login.css";
 import "./ForgotPassword.css";
 
 export default function ForgotPassword() {

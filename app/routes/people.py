@@ -240,6 +240,14 @@ def people_metadata():
     teams = sorted({v for (v,) in db.session.query(Person.team).filter(Person.team.isnot(None)).distinct().all() if v})
     departments = sorted({v for (v,) in db.session.query(Person.department).filter(Person.department.isnot(None)).distinct().all() if v})
     cohorts = sorted({v for (v,) in db.session.query(Person.cohort).filter(Person.cohort.isnot(None)).distinct().all() if v})
+    # Authoritative "active cohorts" count — same source the Internship Hub uses
+    # for "Running Cohorts" (InternshipCohort rows with status 'active'), so the
+    # two pages agree instead of counting free-text Person.cohort labels.
+    try:
+        from app.models import InternshipCohort
+        active_cohorts = InternshipCohort.query.filter_by(status="active").count()
+    except Exception:
+        active_cohorts = 0
     managers = [
         {"id": p.id, "name": p.full_name}
         for p in Person.query.order_by(Person.first_name.asc(), Person.last_name.asc()).all()
@@ -251,6 +259,7 @@ def people_metadata():
         "teams": teams,
         "departments": departments,
         "cohorts": cohorts,
+        "active_cohorts": active_cohorts,
         "managers": managers,
     })
 

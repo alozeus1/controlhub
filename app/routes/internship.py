@@ -872,7 +872,6 @@ def cohort_analysis():
     if error:
         return error
 
-    from app.models import Person, Employment
     
     # We will build batch analytics focusing on Cohort performance and retention
     # This combines InternshipCohort, InternshipCohortMember

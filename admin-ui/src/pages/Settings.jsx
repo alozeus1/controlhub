@@ -4,6 +4,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import { RoleBadge } from "../components/ui/Badge";
 import { useToast } from "../components/ui/Toast";
+import MfaCard from "../components/MfaCard";
 import api from "../utils/api";
 import "./Settings.css";
 
@@ -212,6 +213,7 @@ export default function Settings() {
         )}
 
         {/* Security Tab */}
+        {activeTab === "Security" && <MfaCard />}
         {activeTab === "Security" && (
           <div className="settings-grid">
             <Card>

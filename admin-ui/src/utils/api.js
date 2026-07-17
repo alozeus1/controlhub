@@ -58,8 +58,10 @@ async function request(method, path, body = null, retry = true, requestOptions =
     throw new ApiError("Unable to connect to API.", { data: { error: "Network error" } });
   }
 
-  // On 401, attempt one silent token refresh then retry
-  if (res.status === 401 && retry) {
+  // On 401, attempt one silent token refresh then retry.
+  // Callers can pass { skip401Redirect: true } (e.g. the login form) so a 401
+  // surfaces as a normal error to handle inline instead of forcing a redirect.
+  if (res.status === 401 && retry && !requestOptions.skip401Redirect) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
       return request(method, path, body, false, requestOptions);

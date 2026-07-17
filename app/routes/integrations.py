@@ -389,7 +389,7 @@ def get_status():
     if error:
         return error
 
-    from app.models import Integration, IntegrationLog, AuditExportJob
+    from app.models import Integration, AuditExportJob
 
     total_integrations = Integration.query.count()
     enabled_integrations = Integration.query.filter_by(is_enabled=True).count()

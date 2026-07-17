@@ -47,6 +47,16 @@
 .login-brand-content {
   max-width: 380px;
   text-align: center;
+  /* Frosted scrim so text reads as a distinct foreground layer above the art.
+     Layering only — no change to the panel's background image/gradient. */
+  position: relative;
+  padding: var(--spacing-2xl) var(--spacing-xl);
+  border-radius: var(--radius-xl, 18px);
+  background: rgba(4, 8, 20, 0.42);
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.75);
 }
 
 .login-brand-logo {
@@ -57,17 +67,23 @@
 }
 
 .login-brand-title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  /* Clearer focal point: slightly larger + heavier, with a soft shadow so it
+     stays legible where bright background elements pass behind it. */
+  font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.015em;
   color: var(--color-text-primary);
   margin-bottom: var(--spacing-md);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
 .login-brand-subtitle {
   font-size: var(--font-size-base);
-  color: var(--color-text-muted);
+  /* Brightened one step (slate-200) for contrast — luminance change only. */
+  color: #e2e8f0;
   line-height: 1.6;
   margin-bottom: var(--spacing-2xl);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
 .login-brand-features {
@@ -80,14 +96,30 @@
 .login-brand-feature {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  /* Brighter than muted for readability over the art (luminance only). */
+  color: #cbd5e1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
 }
 
+/* Outline icons in small rounded glowing chips so they feel native to the theme. */
 .login-brand-feature-icon {
-  font-size: 1.1rem;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.06),
+              0 6px 18px -8px rgba(34, 211, 238, 0.55);
+}
+
+.login-brand-feature-icon svg {
+  display: block;
 }
 
 /* Form panel */
@@ -116,6 +148,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.login-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg), 0 24px 60px -24px rgba(0, 0, 0, 0.6);
+  border-color: rgba(34, 211, 238, 0.22);
 }
 
 .login-header {
@@ -226,7 +265,9 @@
 .form-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+  /* Softer, wider cyan glow ring on focus. */
+  box-shadow: 0 0 0 3px var(--color-primary-alpha),
+              0 0 18px -2px rgba(34, 211, 238, 0.45);
 }
 
 .form-input::placeholder {
@@ -248,7 +289,20 @@
 }
 
 .form-input-toggle:hover {
-  color: var(--color-text-primary);
+  color: var(--color-primary-light, #67e8f9);
+}
+
+.toggle-icon {
+  display: inline-flex;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.form-input-toggle:hover .toggle-icon {
+  transform: scale(1.12);
+}
+
+.toggle-icon.is-visible {
+  color: var(--color-primary-light, #67e8f9);
 }
 
 .login-button {
@@ -269,7 +323,13 @@
 
 .login-button:hover:not(:disabled) {
   background: var(--color-primary-dark);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-glow), 0 10px 28px -8px rgba(34, 211, 238, 0.5);
+  transform: translateY(-1px) scale(1.015);
+  filter: brightness(1.06);
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.995);
 }
 
 .login-button:disabled {
@@ -298,6 +358,49 @@
   to { transform: rotate(360deg); }
 }
 
+.login-linkbtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-top: 12px;
+  align-self: center;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.login-sso-button {
+  width: 100%;
+  padding: var(--spacing-md);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: rgba(42, 210, 255, 0.08);
+  border: 1px solid var(--color-border-accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 44px;
+}
+.login-sso-button:hover {
+  background: rgba(42, 210, 255, 0.14);
+  box-shadow: 0 0 18px -4px var(--color-primary-glow);
+}
+
 .login-footer {
   margin-top: var(--spacing-xl);
   display: flex;
@@ -319,11 +422,98 @@
   height: 32px;
   width: auto;
   object-fit: contain;
+  /* Lift the mark off the dark background for legibility. */
+  opacity: 0.95;
+  filter: brightness(1.15) drop-shadow(0 1px 6px rgba(0, 0, 0, 0.5));
+}
+
+.login-footer-brand:hover .login-footer-mark {
+  opacity: 1;
 }
 
 .login-footer-text {
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  /* Raised luminance so the copyright is comfortably readable. */
+  color: #cbd5e1;
+  opacity: 1;
   margin: 0;
   text-align: center;
+}
+
+/* ============================================================================
+   Depth, entrance animation & ambient motion.
+   All non-essential motion is gated behind prefers-reduced-motion: no-preference,
+   so reduced-motion users get the static (fully visible) layout. No background
+   image, gradient, or palette colors are changed here — only added layers/motion.
+   ========================================================================== */
+
+/* Keep the hero text above any ambient glow layers. */
+.login-brand-content { z-index: 2; }
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* --- Entrance: staggered fade + slide-up for hero, fade + scale for card --- */
+  @keyframes login-fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes login-fade-scale {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .login-brand-logo,
+  .login-brand-title,
+  .login-brand-subtitle,
+  .login-brand-feature {
+    opacity: 0;
+    animation: login-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .login-brand-logo      { animation-delay: 0.05s; }
+  .login-brand-title     { animation-delay: 0.18s; }
+  .login-brand-subtitle  { animation-delay: 0.30s; }
+  .login-brand-feature:nth-of-type(1) { animation-delay: 0.42s; }
+  .login-brand-feature:nth-of-type(2) { animation-delay: 0.54s; }
+  .login-brand-feature:nth-of-type(3) { animation-delay: 0.66s; }
+
+  .login-card {
+    opacity: 0;
+    animation: login-fade-scale 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+  }
+
+  /* --- Ambient: slow grid drift --- */
+  @keyframes login-grid-drift {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 40px 40px, 40px 40px; }
+  }
+  .login-bg { animation: login-grid-drift 22s linear infinite; }
+
+  /* --- Ambient: soft floating/pulsing glow orbs over the hero art --- */
+  .login-brand-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(240px 240px at 22% 28%, rgba(34, 211, 238, 0.16), transparent 70%),
+      radial-gradient(300px 300px at 78% 72%, rgba(139, 92, 246, 0.14), transparent 70%);
+    animation: login-orb-float 16s ease-in-out infinite;
+  }
+  @keyframes login-orb-float {
+    0%   { transform: translate3d(0, 0, 0) scale(1);      opacity: 0.85; }
+    50%  { transform: translate3d(0, -14px, 0) scale(1.05); opacity: 1; }
+    100% { transform: translate3d(0, 0, 0) scale(1);      opacity: 0.85; }
+  }
+
+  /* Gentle glow pulse on the feature icon chips. */
+  @keyframes login-chip-pulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.06),
+                           0 6px 18px -8px rgba(34, 211, 238, 0.45); }
+    50%      { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12),
+                           0 8px 22px -6px rgba(34, 211, 238, 0.7); }
+  }
+  .login-brand-feature-icon { animation: login-chip-pulse 6s ease-in-out infinite; }
+  .login-brand-feature:nth-of-type(2) .login-brand-feature-icon { animation-delay: 1.2s; }
+  .login-brand-feature:nth-of-type(3) .login-brand-feature-icon { animation-delay: 2.4s; }
 }

@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models import User, FileUpload, Job, AuditLog, ROLE_LEVELS
+from app.models import User, Job, AuditLog, ROLE_LEVELS
 from app.extensions import db
 from app.utils.rbac import (
     require_role,
@@ -9,7 +9,6 @@ from app.utils.rbac import (
 )
 from app.utils.audit import (
     log_user_created,
-    log_user_updated,
     log_role_changed,
     log_user_disabled,
     log_user_enabled,
@@ -358,3 +357,62 @@ def list_audit_actions():
     """List all unique action types for filtering."""
     actions = db.session.query(AuditLog.action).distinct().all()
     return jsonify([a[0] for a in actions])
+
+
+@admin_bp.get("/audit-logs/export")
+@require_role("viewer")
+def export_audit_logs():
+    """Export the (filtered) audit log as CSV. Honors the same filters as the list."""
+    import csv
+    import io
+    from datetime import datetime as _dt
+    from flask import Response
+
+    query = AuditLog.query
+    action = request.args.get("action")
+    if action:
+        query = query.filter(AuditLog.action == action)
+    actor_id = request.args.get("actor_id", type=int)
+    if actor_id:
+        query = query.filter(AuditLog.actor_id == actor_id)
+    target_type = request.args.get("target_type")
+    if target_type:
+        query = query.filter(AuditLog.target_type == target_type)
+    search = request.args.get("search")
+    if search:
+        query = query.filter(
+            (AuditLog.actor_email.ilike(f"%{search}%")) |
+            (AuditLog.target_label.ilike(f"%{search}%"))
+        )
+    from_date = request.args.get("from_date")
+    if from_date:
+        try:
+            query = query.filter(AuditLog.created_at >= _dt.fromisoformat(from_date))
+        except ValueError:
+            pass
+    to_date = request.args.get("to_date")
+    if to_date:
+        try:
+            query = query.filter(AuditLog.created_at <= _dt.fromisoformat(to_date))
+        except ValueError:
+            pass
+
+    rows = query.order_by(AuditLog.created_at.desc()).limit(10000).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["timestamp", "actor_email", "action", "target_type",
+                     "target_label", "ip_address", "user_agent"])
+    for r in rows:
+        writer.writerow([
+            r.created_at.isoformat() if r.created_at else "",
+            r.actor_email or "",
+            r.action or "",
+            r.target_type or "",
+            r.target_label or "",
+            r.ip_address or "",
+            (r.user_agent or "")[:120],
+        ])
+    filename = f"audit-log-{_dt.utcnow().strftime('%Y%m%d-%H%M%S')}.csv"
+    return Response(buf.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})

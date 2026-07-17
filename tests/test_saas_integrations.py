@@ -1,4 +1,3 @@
-import pytest
 from app.utils.integrations_mock import get_taiga_activity, send_mattermost_notification, send_email_notification
 from app.models import AuditLog
 

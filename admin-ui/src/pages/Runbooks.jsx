@@ -8,6 +8,15 @@ import { PageLoader } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import "./Runbooks.css";
 
+// Coerce an API payload into an array, tolerating {items:[...]},
+// {categories:[...]}, a bare array, or anything unexpected.
+function asArray(data, key) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data[key])) return data[key];
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
 export default function Runbooks() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -29,9 +38,13 @@ export default function Runbooks() {
         api.get(`/admin/runbooks?${params}`),
         api.get("/admin/runbooks/categories"),
       ]);
-      setRunbooks(runbooksRes.data.items || runbooksRes.data || []);
-      setCategories(categoriesRes.data.items || categoriesRes.data || []);
+      // Defensive: the API may return an array, {items:[...]}, or
+      // {categories:[...]}. Never hand a non-array to state (guards .map crash).
+      setRunbooks(asArray(runbooksRes.data, "items"));
+      setCategories(asArray(categoriesRes.data, "categories"));
     } catch {
+      setRunbooks([]);
+      setCategories([]);
       toast.error("Failed to load runbooks");
     } finally {
       setLoading(false);

@@ -171,7 +171,28 @@
   background: rgba(42, 210, 255, 0.12);
   color: var(--color-primary);
   border-color: var(--color-border-accent);
-  box-shadow: inset 0 0 0 1px rgba(42, 210, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(42, 210, 255, 0.18),
+              0 6px 18px -10px var(--color-primary-glow);
+  position: relative;
+}
+
+/* Left accent bar for the active item. */
+.sidebar-link.active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary));
+  box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.sidebar-link.active .sidebar-link-icon {
+  color: var(--color-primary-light);
+  opacity: 1;
 }
 
 .sidebar-link-icon {

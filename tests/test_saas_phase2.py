@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from app.models import (
     Person, Employment, User, BiweeklyReview, MilestoneReview,
     OnboardingTemplateItem, PersonOnboardingItem,

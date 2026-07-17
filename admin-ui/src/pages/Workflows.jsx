@@ -80,13 +80,18 @@ export default function Workflows() {
     }
     try {
       setSaving(true);
-      await api.post("/admin/workflows/runs", startForm);
+      // Only send ids that are actually set — never post empty strings into
+      // integer columns (that 500s on Postgres).
+      const payload = { template_id: Number(startForm.template_id) };
+      if (startForm.subject_name?.trim()) payload.subject_name = startForm.subject_name.trim();
+      if (startForm.subject_user_id) payload.subject_user_id = Number(startForm.subject_user_id);
+      await api.post("/admin/workflows/runs", payload);
       toast.success("Workflow started");
       setShowStartModal(false);
       setStartForm({ template_id: "", subject_name: "", subject_user_id: "", note: "" });
       fetchData();
-    } catch {
-      toast.error("Failed to start workflow");
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || "Failed to start workflow");
     } finally {
       setSaving(false);
     }

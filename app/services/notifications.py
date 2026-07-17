@@ -3,7 +3,6 @@ Notification Service Layer
 
 Business logic for notification channels, alert rules, and event delivery.
 """
-import json
 import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any

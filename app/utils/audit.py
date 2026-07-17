@@ -46,9 +46,23 @@ def log_action(
         target_label: Human-readable label (e.g., email address)
         details: Additional context as dict
     """
+    # Attribute to a service account when an API key is acting (no human user).
+    actor_id = actor.id if actor else None
+    actor_email = actor.email if actor else None
+    if actor is None:
+        try:
+            from flask import g
+            sa = getattr(g, "service_account", None)
+            key = getattr(g, "api_key", None)
+            if sa is not None:
+                prefix = getattr(key, "key_prefix", "?")
+                actor_email = f"service-account:{sa.name}#{prefix}"
+        except Exception:
+            pass
+
     audit_entry = AuditLog(
-        actor_id=actor.id if actor else None,
-        actor_email=actor.email if actor else None,
+        actor_id=actor_id,
+        actor_email=actor_email,
         action=action,
         target_type=target_type,
         target_id=target_id,

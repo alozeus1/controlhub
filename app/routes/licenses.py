@@ -43,6 +43,7 @@ def create_license():
         cost_monthly=data.get("cost_monthly"),
         renewal_date=date.fromisoformat(data["renewal_date"]) if data.get("renewal_date") else None,
         owner_id=data.get("owner_id"),
+        owner_email=(data.get("owner_email") or data.get("owner") or None),
         notes=data.get("notes"), status=data.get("status", "active"),
         created_by_id=request.current_user.id,
     )
@@ -58,6 +59,8 @@ def update_license(license_id):
     for field in ("vendor","product","license_type","seats","seats_used","cost_monthly","owner_id","notes","status"):
         if field in data:
             setattr(l, field, data[field])
+    if "owner_email" in data or "owner" in data:
+        l.owner_email = data.get("owner_email") or data.get("owner") or None
     if "renewal_date" in data:
         l.renewal_date = date.fromisoformat(data["renewal_date"]) if data["renewal_date"] else None
     db.session.commit()

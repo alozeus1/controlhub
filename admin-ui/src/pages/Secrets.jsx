@@ -6,6 +6,7 @@ import Input, { Select } from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
 import Modal, { ConfirmModal } from "../components/ui/Modal";
 import { PageLoader } from "../components/ui/Spinner";
+import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/Toast";
 import "./Secrets.css";
 
@@ -190,14 +191,17 @@ export default function Secrets() {
         />
         <CardBody>
           {secrets.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">🔐</div>
-              <p className="empty-state-title">No secrets found</p>
-              <p className="empty-state-text">Add your first secret to get started</p>
-              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-                Add Secret
-              </Button>
-            </div>
+            <EmptyState
+              icon="lock"
+              title="No secrets found"
+              subtitle="Store API keys, tokens, and credentials securely."
+              hint="Secrets are encrypted at rest."
+              action={
+                <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                  Add Secret
+                </Button>
+              }
+            />
           ) : (
             <div className="table-responsive">
               <table className="data-table">

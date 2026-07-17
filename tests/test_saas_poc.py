@@ -1,6 +1,6 @@
 import pytest
 from datetime import date
-from app.models import Person, Employment, BiweeklyReview, User
+from app.models import Person, Employment, User
 
 
 @pytest.fixture

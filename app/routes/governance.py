@@ -237,8 +237,12 @@ def approve_request(request_id):
     if approval.status != "pending":
         return jsonify({"error": f"Request is already {approval.status}"}), 400
 
-    # Check if actor has required role to approve
+    # Guard against a deleted/missing policy (would otherwise 500).
     policy = approval.policy
+    if not policy:
+        return jsonify({"error": "The policy for this request no longer exists."}), 409
+
+    # Check if actor has required role to approve
     approver_level = ROLE_LEVELS.get(policy.approver_role, 0)
     if actor.role_level < approver_level:
         return jsonify({"error": f"Requires {policy.approver_role} role to approve"}), 403
@@ -331,8 +335,12 @@ def reject_request(request_id):
     if approval.status != "pending":
         return jsonify({"error": f"Request is already {approval.status}"}), 400
 
-    # Check if actor has required role
+    # Guard against a deleted/missing policy (would otherwise 500).
     policy = approval.policy
+    if not policy:
+        return jsonify({"error": "The policy for this request no longer exists."}), 409
+
+    # Check if actor has required role
     approver_level = ROLE_LEVELS.get(policy.approver_role, 0)
     if actor.role_level < approver_level:
         return jsonify({"error": f"Requires {policy.approver_role} role to reject"}), 403

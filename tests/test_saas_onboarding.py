@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, date
+from datetime import date
 from app.models import Person, Employment, OnboardingTemplateItem, PersonOnboardingItem, User
 
 @pytest.fixture

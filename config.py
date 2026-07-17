@@ -22,6 +22,11 @@ class Config:
         self.JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
         self.JWT_BLACKLIST_ENABLED = True
         self.JWT_BLACKLIST_TOKEN_CHECKS = ["access", "refresh"]
+        # Revocation safety: when the revocation store (Redis) cannot be reached,
+        # fail CLOSED by default (deny) so revoked/compromised tokens cannot be
+        # used during an outage. Operators may opt into a bounded degraded mode
+        # by setting JWT_FAIL_OPEN=true (NOT recommended for production).
+        self.JWT_FAIL_OPEN = os.environ.get("JWT_FAIL_OPEN", "false").lower() == "true"
 
         # CORS
         self.CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001")
@@ -56,6 +61,17 @@ class Config:
         self.FEATURE_PEOPLE = os.environ.get("FEATURE_PEOPLE", "true").lower() == "true"
         self.FEATURE_INTERNSHIP_PROGRAM = os.environ.get("FEATURE_INTERNSHIP_PROGRAM", "true").lower() == "true"
         self.FEATURE_AGENT_SERVICE = os.environ.get("FEATURE_AGENT_SERVICE", "true").lower() == "true"
+        self.FEATURE_EMAIL_CAMPAIGNS = os.environ.get("FEATURE_EMAIL_CAMPAIGNS", "true").lower() == "true"
+
+        # Email campaigns / SES
+        self.EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", os.environ.get("STORAGE_PROVIDER", "localstack"))
+        self.SES_CONFIGURATION_SET = os.environ.get("SES_CONFIGURATION_SET")
+        self.SES_FROM_ADDRESS = os.environ.get("SES_FROM_ADDRESS", "campaigns@controlhub.local")
+        self.SES_FROM_NAME = os.environ.get("SES_FROM_NAME", "Web Forx")
+        self.SES_SENDING_ENABLED = os.environ.get("SES_SENDING_ENABLED", "true").lower() == "true"
+        self.SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
+        self.PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:9000")
+        self.ORG_POSTAL_ADDRESS = os.environ.get("ORG_POSTAL_ADDRESS", "Web Forx Technology Limited")
 
         # SaaS org-management integrations (default: mock mode, no credentials needed)
         self.TAIGA_API_ENABLED = os.environ.get("TAIGA_API_ENABLED", "false").lower() == "true"

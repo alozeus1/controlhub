@@ -3,11 +3,15 @@ import logoIcon from "../assets/brand/logo-icon.svg";
 import { useFeatures } from "../contexts/FeaturesContext";
 import { getCurrentRole } from "../utils/auth";
 import AppIcon from "./ui/AppIcon";
-import "./Sidebar.css";
+import "./sidebar.css";
 
 const MANAGER_ROLES = ["superadmin", "hr_admin", "admin", "people_manager"];
 
-const getNavItems = (features, role) => {
+const getNavItems = (features = {}, role) => {
+  // Never let a malformed features payload break global navigation.
+  if (!features || typeof features !== "object" || Array.isArray(features)) {
+    features = {};
+  }
   // Basic users (interns) only get their self-service journey.
   if (role === "user") {
     return [
@@ -49,6 +53,10 @@ const getNavItems = (features, role) => {
       { to: "/ui/secrets", icon: "lock", label: "Secrets" },
       { to: "/ui/certificates", icon: "shield", label: "Certificates" },
       { to: "/ui/feature-flags", icon: "flag", label: "Feature Flags" },
+      ...(["superadmin", "admin"].includes(role) ? [
+        { to: "/ui/roles", icon: "lock", label: "Roles & Permissions" },
+        { to: "/ui/sso", icon: "link", label: "SSO / Identity" },
+      ] : []),
     ]},
     { section: "DevOps", items: [
       { to: "/ui/env-config", icon: "document", label: "Env Config" },
@@ -89,8 +97,21 @@ const getNavItems = (features, role) => {
     items.push({ section: "Enterprise", items: enterpriseItems });
   }
 
+  if (features.email_campaigns) {
+    items.push({ section: "Marketing", items: [
+      { to: "/ui/email", icon: "report", label: "Email Overview" },
+      { to: "/ui/email/campaigns", icon: "bell", label: "Campaigns" },
+      { to: "/ui/email/subscribers", icon: "users", label: "Subscribers" },
+      { to: "/ui/email/lists", icon: "folder", label: "Lists" },
+      { to: "/ui/email/settings", icon: "settings", label: "Email Settings" },
+    ]});
+  }
+
   items.push({ section: "System", items: [
     { to: "/ui/audit-logs", icon: "document", label: "Audit Logs" },
+    ...(["superadmin", "admin"].includes(role) ? [
+      { to: "/ui/organization", icon: "monitor", label: "Organization" },
+    ] : []),
     { to: "/ui/settings", icon: "settings", label: "Settings" },
   ]});
 
@@ -99,7 +120,13 @@ const getNavItems = (features, role) => {
 
 export default function Sidebar({ isOpen, onClose }) {
   const { features } = useFeatures();
-  const navItems = getNavItems(features, getCurrentRole());
+  let navItems = [];
+  try {
+    const result = getNavItems(features, getCurrentRole());
+    navItems = Array.isArray(result) ? result : [];
+  } catch {
+    navItems = [];
+  }
 
   return (
     <>
@@ -131,7 +158,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {navItems.map((group) => (
             <div key={group.section} className="sidebar-section">
               <div className="sidebar-section-title">{group.section}</div>
-              {group.items.map((item) => (
+              {(Array.isArray(group.items) ? group.items : []).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

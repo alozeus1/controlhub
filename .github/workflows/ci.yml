@@ -6,82 +6,154 @@ on:
   pull_request:
     branches: [main]
 
+# Mandatory release gates. None use continue-on-error; a failure fails the run.
 jobs:
-  lint:
+  # 1. Backend lint / static checks
+  backend-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: pip install flake8
+      # Enforce correctness codes (unused imports, bare except, redefinition,
+      # unused vars, syntax errors). Cosmetic style is not release-blocking.
+      - name: flake8 correctness (F401, E722 restored)
+        run: flake8 app/ tests/ scripts/ --select=F401,F811,F841,E722,E999,F823 --max-line-length=120
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+  # 2. Backend unit/integration tests (fast, SQLite)
+  backend-test-sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: pip install -r requirements.txt
+      - name: Run tests (SQLite, fast feedback)
+        env:
+          SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
+          FLASK_APP: wsgi.py
+        run: pytest tests/ -q
 
-      - name: Install linting tools
-        run: pip install flake8
+  # 3/4/5. PostgreSQL migration from empty DB + drift check + tests on Postgres
+  backend-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: controlhub
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SQLALCHEMY_DATABASE_URI: "postgresql://postgres:password@localhost:5432/controlhub" # secret-scan:allow
+      FLASK_APP: wsgi.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: pip install -r requirements.txt
+      - name: Migrate empty DB to head
+        run: flask db upgrade
+      - name: Assert a single migration head
+        run: |
+          heads=$(flask db heads 2>/dev/null | grep -c "head" || true)
+          echo "heads: $heads"
+          test "$heads" -eq 1
+      - name: Model / migration drift check
+        run: python scripts/check_migration_drift.py
+      - name: Backend tests against PostgreSQL
+        run: pytest tests/ -q
 
-      - name: Run flake8
-        run: flake8 app/ tests/ --max-line-length=120 --ignore=E501,W503,E302,F401,E722,W292
-
+  # 6/7/8. Frontend lint, Vitest, production build
   frontend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
+    defaults: { run: { working-directory: admin-ui } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm", cache-dependency-path: admin-ui/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - name: Vitest (fails on no-tests)
+        run: npm run test -- --passWithNoTests=false
+      - run: npm run build
+
+  # 9. Dependency vulnerability scans
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - name: pip-audit (fail on high/critical)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --strict
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: npm audit (fail on high)
         working-directory: admin-ui
-    steps:
-      - uses: actions/checkout@v4
+        run: npm audit --audit-level=high
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: admin-ui/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Run frontend lint
-        run: npm run lint
-
-      - name: Run frontend tests
-        run: CI=true npm test -- --watchAll=false
-
-      - name: Build frontend
-        run: npm run build
-
-  test:
+  # 10. Secret scan
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Run tests (SQLite for CI)
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
         env:
-          SQLALCHEMY_DATABASE_URI: sqlite:///:memory:
-          FLASK_APP: wsgi.py
-          FLASK_ENV: testing
-        run: pytest tests/ -v --cov=app --cov-report=term-missing
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  docker-build:
+  # 11. Large-file / repository-policy scan
+  repo-policy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: python scripts/check_large_files.py
 
-      - name: Build Docker image
-        run: docker build -f Dockerfile.api -t flask-app:test .
-
-      - name: Verify image runs
+  # 12/13/14. Container build, vuln scan, non-root + healthcheck verification
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f Dockerfile.api -t controlhub-api:ci .
+      - name: Verify image runs as non-root
         run: |
-          docker run -d --name test-container -e SQLALCHEMY_DATABASE_URI=sqlite:// -e FLASK_APP=wsgi.py flask-app:test sleep 30
-          docker exec test-container python -c "from app import create_app; app = create_app(); print('App created successfully')"
-          docker stop test-container
+          uid=$(docker run --rm --entrypoint id controlhub-api:ci -u)
+          echo "container uid: $uid"
+          test "$uid" != "0"
+      - name: Verify HEALTHCHECK is defined
+        run: |
+          docker inspect controlhub-api:ci --format '{{json .Config.Healthcheck}}' | tee hc.json
+          grep -q healthz hc.json
+      - name: Trivy image scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: controlhub-api:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  # 16. Deployment configuration validation
+  deploy-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose config
+        run: |
+          touch .env
+          docker compose config -q
+      - name: Required deployment files present
+        run: |
+          for f in Procfile entrypoint.sh entrypoint.worker.sh Dockerfile.api .dockerignore; do
+            test -f "$f" || { echo "missing $f"; exit 1; }
+          done
