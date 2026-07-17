@@ -12,7 +12,7 @@ jobs:
   backend-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.10" }
       - run: pip install flake8
@@ -25,7 +25,7 @@ jobs:
   backend-test-sqlite:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.10" }
       - run: pip install -r requirements.txt
@@ -53,7 +53,7 @@ jobs:
       SQLALCHEMY_DATABASE_URI: "postgresql://postgres:password@localhost:5432/controlhub" # secret-scan:allow
       FLASK_APP: wsgi.py
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.10" }
       - run: pip install -r requirements.txt
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: admin-ui } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: "20", cache: "npm", cache-dependency-path: admin-ui/package-lock.json }
       - run: npm ci
@@ -87,7 +87,7 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.10" }
       - name: pip-audit (fail on high/critical)
@@ -104,7 +104,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: gitleaks/gitleaks-action@v2
         env:
@@ -114,7 +114,7 @@ jobs:
   repo-policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.10" }
       - run: python scripts/check_large_files.py
@@ -123,7 +123,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build API image
         run: docker build -f Dockerfile.api -t controlhub-api:ci .
       - name: Verify image runs as non-root
@@ -147,7 +147,7 @@ jobs:
   deploy-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate compose config
         run: |
           touch .env
