@@ -1,7 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import get_config
-from app.routes.ui import ui_bp
 from app.extensions import db, migrate, jwt, mail, limiter
 from app.middleware import init_request_logging, MethodOverrideMiddleware
 from app.utils.security_headers import init_security_headers
@@ -148,6 +147,10 @@ def create_app():
     app.register_blueprint(search_bp, url_prefix="/admin")
     app.register_blueprint(mfa_bp, url_prefix="/auth")
     app.register_blueprint(sso_public_bp, url_prefix="/auth")
-    app.register_blueprint(ui_bp, url_prefix="/ui")
+    # NOTE: The legacy server-rendered `ui` blueprint was removed (audit A-5).
+    # The production UI is the React SPA served by nginx at /ui/*. The old
+    # blueprint carried a parallel session-cookie auth path and a hardcoded
+    # localhost API base, which was dead in the nginx-fronted deployment and a
+    # confusing second auth surface reachable only on the direct API port.
 
     return app

@@ -31,10 +31,12 @@ def _value_change_for_audit(old_value, new_value, old_is_secret, new_is_secret):
 
 
 def _config_snapshot(config: EnvConfig):
+    # Use decrypted_value so change-detection compares plaintext, not ciphertext
+    # (secret values are redacted before they ever reach an audit record).
     return {
         "environment": config.environment,
         "key": config.key,
-        "value": _redact_value(config.value) if config.is_secret else config.value,
+        "value": _redact_value(config.decrypted_value) if config.is_secret else config.decrypted_value,
         "is_secret": config.is_secret,
         "description": config.description,
     }
@@ -162,7 +164,7 @@ def upsert_config(project_id):
 
     existing = EnvConfig.query.filter_by(project_id=project_id, environment=env, key=key).first()
     if existing:
-        old_value = existing.value
+        old_value = existing.decrypted_value
         old_is_secret = existing.is_secret
         before = _config_snapshot(existing)
         if "value" in data:
@@ -236,7 +238,7 @@ def update_config(project_id, config_id):
         return _validation_error(errors)
 
     actor = request.current_user
-    old_value = config.value
+    old_value = config.decrypted_value
     old_is_secret = config.is_secret
     before = _config_snapshot(config)
 
@@ -312,9 +314,9 @@ def export_configs(project_id):
     )
 
     if fmt == "json":
-        return jsonify({c.key: c.value for c in configs})
+        return jsonify({c.key: c.decrypted_value for c in configs})
 
-    lines = [f'{c.key}={c.value or ""}' for c in configs]
+    lines = [f'{c.key}={c.decrypted_value or ""}' for c in configs]
     return Response(
         "\n".join(lines),
         mimetype="text/plain",

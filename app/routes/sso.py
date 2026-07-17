@@ -15,7 +15,6 @@ import os
 import secrets as pysecrets
 from urllib.parse import urlencode
 
-import requests
 from flask import Blueprint, request, jsonify, redirect, current_app
 from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
 
@@ -23,6 +22,7 @@ from app.extensions import db
 from app.models import User, SsoConfig
 from app.permissions import require_permission
 from app.services.secret_crypto import encrypt_secret, decrypt_secret
+from app.services.safe_http import safe_get, safe_post, assert_public_url
 from app.utils.audit import log_action
 from flask_jwt_extended import create_access_token as _cat
 from datetime import timedelta
@@ -40,7 +40,8 @@ def _ui_base_url():
 
 
 def _discovery(cfg):
-    r = requests.get(cfg.discovery_url, timeout=8)
+    # SSRF-guarded: rejects internal/metadata addresses and non-HTTPS in prod.
+    r = safe_get(cfg.discovery_url, expect_json=True)
     r.raise_for_status()
     return r.json()
 
@@ -151,13 +152,13 @@ def sso_callback():
     try:
         doc = _discovery(cfg)
         secret = decrypt_secret(cfg.client_secret_enc) if cfg.client_secret_enc else ""
-        token_res = requests.post(doc["token_endpoint"], data={
+        token_res = safe_post(doc["token_endpoint"], expect_json=True, data={
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": f"{_base_url()}/auth/sso/callback",
             "client_id": cfg.client_id,
             "client_secret": secret,
-        }, timeout=8)
+        })
         token_res.raise_for_status()
         tok = token_res.json()
         access = tok.get("access_token")
@@ -180,8 +181,8 @@ def sso_callback():
     userinfo = {}
     if access:
         try:
-            userinfo = requests.get(doc["userinfo_endpoint"],
-                                    headers={"Authorization": f"Bearer {access}"}, timeout=8).json()
+            userinfo = safe_get(doc["userinfo_endpoint"], expect_json=True,
+                                headers={"Authorization": f"Bearer {access}"}).json()
         except Exception:
             userinfo = {}
 
@@ -229,6 +230,9 @@ def _verify_id_token(cfg, doc, id_token, expected_nonce):
     jwks_uri = doc.get("jwks_uri")
     if not jwks_uri:
         raise ValueError("Provider discovery has no jwks_uri")
+    # PyJWKClient fetches the JWKS itself (bypassing safe_http), so validate the
+    # URL against the SSRF guard before letting it connect.
+    assert_public_url(jwks_uri)
     signing_key = PyJWKClient(jwks_uri).get_signing_key_from_jwt(id_token)
     claims = jwt.decode(
         id_token,

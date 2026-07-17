@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models import Secret, SecretAccessLog, ApprovalRequest
 from app.services.secret_crypto import encrypt_secret, decrypt_secret
 from app.utils.audit import log_action
@@ -85,6 +85,7 @@ def get_secret(secret_id):
 
 
 @secrets_bp.post("/secrets/<int:secret_id>/reveal")
+@limiter.limit("20 per minute")
 @require_role("admin")
 def reveal_secret(secret_id):
     s = Secret.query.get_or_404(secret_id)

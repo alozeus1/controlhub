@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from flask_jwt_extended import create_access_token
 
@@ -6,7 +8,18 @@ from flask_jwt_extended import create_access_token
 def app(tmp_path, monkeypatch):
     db_path = tmp_path / "test.sqlite"
     monkeypatch.setenv("ENVIRONMENT", "development")
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", f"sqlite:///{db_path}")
+    configured_db_uri = os.environ.get("SQLALCHEMY_DATABASE_URI")
+    allow_external_reset = os.environ.get("ALLOW_TEST_DATABASE_RESET", "").lower() in ("1", "true", "yes")
+    if configured_db_uri:
+        is_sqlite = configured_db_uri.startswith("sqlite:")
+        if not is_sqlite and not allow_external_reset:
+            raise RuntimeError(
+                "Refusing to run tests against an externally configured database "
+                "without ALLOW_TEST_DATABASE_RESET=true"
+            )
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", configured_db_uri)
+    else:
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", f"sqlite:///{db_path}")
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/15")

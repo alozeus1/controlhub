@@ -9,9 +9,9 @@ env-gated per provider (see config.py):
 - Mattermost: MATTERMOST_API_ENABLED + MATTERMOST_WEBHOOK_URL
 - Email:      EMAIL_NOTIFICATIONS_ENABLED + RESEND_API_KEY (+ RESEND_FROM_EMAIL)
 
-All functions are best-effort: a failure to render, deliver, or audit a
-notification must never break the calling workflow. Real-delivery failures
-fall back to mock behavior and are recorded in the audit details.
+Development behavior is best-effort and can use deterministic mocks. Production
+refuses mock fallback by default so required integrations cannot silently report
+success without contacting the provider.
 """
 import logging
 from datetime import datetime
@@ -50,6 +50,19 @@ def _config(key, default=None):
         return current_app.config.get(key, default)
     except RuntimeError:
         return default
+
+
+def _production_mocks_allowed():
+    return (
+        _config("ENVIRONMENT") != "production"
+        or _config("ALLOW_PRODUCTION_INTEGRATION_MOCKS", False)
+    )
+
+
+def _raise_if_production_mock(provider, reason):
+    if _production_mocks_allowed():
+        return
+    raise RuntimeError(f"{provider} integration unavailable in production: {reason}")
 
 
 def _mock_taiga_metrics(taiga_username):
@@ -134,14 +147,26 @@ def get_taiga_activity(taiga_username):
 
     activity = None
     error = None
-    if _config("TAIGA_API_ENABLED", False):
+    taiga_enabled = _config("TAIGA_API_ENABLED", False)
+    if taiga_enabled:
         try:
             activity = _fetch_real_taiga_metrics(taiga_username)
         except Exception as exc:
             error = str(exc)
-            logger.warning("Taiga fetch failed for %s; falling back to mock: %s", taiga_username, exc)
+            logger.warning("Taiga fetch failed for %s: %s", taiga_username, exc)
 
     if activity is None:
+        reason = error[:300] if error else "TAIGA_API_ENABLED is false"
+        if not _production_mocks_allowed():
+            _safe_log_action(
+                action="integration.taiga.activity_fetched",
+                actor=None,
+                target_type="user",
+                target_id=None,
+                target_label=taiga_username,
+                details={"mocked": True, "participation_score": 0, "delivery_error": reason},
+            )
+            _raise_if_production_mock("Taiga", reason)
         activity = _mock_taiga_metrics(taiga_username)
 
     details = {"mocked": activity["source"] == "mock", "participation_score": activity["participation_score"]}
@@ -188,6 +213,22 @@ def send_mattermost_notification(username, template_type, context):
             logger.warning("Mattermost delivery failed for @%s: %s", username, exc)
 
     if not delivered:
+        if error:
+            reason = error[:300]
+        elif not _config("MATTERMOST_API_ENABLED", False):
+            reason = "MATTERMOST_API_ENABLED is false"
+        else:
+            reason = "MATTERMOST_WEBHOOK_URL is not configured"
+        if not _production_mocks_allowed():
+            _safe_log_action(
+                action="integration.mattermost.notify",
+                actor=None,
+                target_type="user",
+                target_id=None,
+                target_label=username,
+                details={"template_type": template_type, "message": message, "mocked": True, "delivery_error": reason},
+            )
+            _raise_if_production_mock("Mattermost", reason)
         logger.info(f"[MATTERMOST MOCK] Notification sent to @{username}: {message}")
 
     details = {"template_type": template_type, "message": message, "mocked": not delivered}
@@ -260,6 +301,22 @@ def send_email_notification(email, template_type, context):
             logger.warning("Email delivery failed for %s: %s", email, exc)
 
     if not delivered:
+        if error:
+            reason = error[:300]
+        elif not _config("EMAIL_NOTIFICATIONS_ENABLED", False):
+            reason = "EMAIL_NOTIFICATIONS_ENABLED is false"
+        else:
+            reason = "RESEND_API_KEY is not configured"
+        if not _production_mocks_allowed():
+            _safe_log_action(
+                action="integration.email.send",
+                actor=None,
+                target_type="user",
+                target_id=None,
+                target_label=email,
+                details={"template_type": template_type, "subject": subject, "mocked": True, "delivery_error": reason},
+            )
+            _raise_if_production_mock("Email", reason)
         logger.info(f"[EMAIL MOCK] Sent to {email}\nSubject: {subject}\nBody: {body}")
 
     details = {"template_type": template_type, "subject": subject, "mocked": not delivered}

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import hashlib
 import secrets
+from sqlalchemy import event as sa_event
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 
@@ -184,7 +185,7 @@ class ApprovalRequest(db.Model):
     __tablename__ = "approval_request"
 
     id = db.Column(db.Integer, primary_key=True)
-    policy_id = db.Column(db.Integer, db.ForeignKey("policy.id"), nullable=False)
+    policy_id = db.Column(db.Integer, db.ForeignKey("policy.id", ondelete="SET NULL"), nullable=True)
     requester_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     action = db.Column(db.String(100), nullable=False)
     target_type = db.Column(db.String(50), nullable=True)
@@ -782,14 +783,94 @@ class EnvConfig(db.Model):
     creator = db.relationship("User", foreign_keys=[created_by_id])
     updater = db.relationship("User", foreign_keys=[updated_by_id])
     __table_args__ = (db.UniqueConstraint("project_id", "environment", "key", name="uq_env_config"),)
+
+    @property
+    def decrypted_value(self):
+        """
+        Return the plaintext value (audit A-7). Secret values are stored
+        encrypted at rest with a 'fernet:v1:' sentinel; legacy plaintext rows
+        (no sentinel) are returned as-is for backward compatibility. Invalid
+        ciphertext returns None rather than leaking or raising.
+        """
+        v = self.value
+        if v and isinstance(v, str) and v.startswith("fernet:v1:"):
+            from app.services.secret_crypto import decrypt_secret
+            try:
+                return decrypt_secret(v)
+            except Exception:
+                return None
+        return v
+
     def to_dict(self, show_secrets=False):
-        val = self.value if (show_secrets or not self.is_secret) else "***"
+        val = self.decrypted_value if (show_secrets or not self.is_secret) else "***"
         return {"id": self.id, "project_id": self.project_id, "environment": self.environment,
                 "key": self.key, "value": val, "is_secret": self.is_secret,
                 "description": self.description, "created_by_id": self.created_by_id,
                 "updated_by_id": self.updated_by_id,
                 "created_at": self.created_at.isoformat() if self.created_at else None,
                 "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+
+
+def _encrypt_env_config_secret(mapper, connection, target):
+    """
+    Encrypt secret-designated EnvConfig values at rest (audit A-7).
+
+    Runs on insert/update flush, where both is_secret and value are known.
+    Idempotent: values already carrying the 'fernet:v1:' sentinel are left
+    untouched, so re-flushes and the backfill migration never double-encrypt.
+    Non-secret values are stored as plaintext (unchanged behavior).
+    """
+    if target.is_secret and target.value and isinstance(target.value, str):
+        if not target.value.startswith("fernet:v1:"):
+            from app.services.secret_crypto import encrypt_secret
+            target.value = encrypt_secret(target.value)
+
+
+sa_event.listen(EnvConfig, "before_insert", _encrypt_env_config_secret)
+sa_event.listen(EnvConfig, "before_update", _encrypt_env_config_secret)
+
+
+class FeatureFlagSdkKey(db.Model):
+    """
+    Scoped, revocable SDK key for the public feature-flag SDK endpoint
+    (audit A-10). Stored hashed at rest (SHA-256); only a short prefix is kept
+    for identification. Each key is bound to a single project, so a key cannot
+    enumerate flags across projects.
+    """
+    __tablename__ = "feature_flag_sdk_key"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project = db.Column(db.String(200), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=True)
+    key_hash = db.Column(db.String(64), nullable=False, unique=True)
+    key_prefix = db.Column(db.String(12), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+
+    creator = db.relationship("User", foreign_keys=[created_by_id])
+
+    @staticmethod
+    def generate_key():
+        key = f"chsdk_{secrets.token_urlsafe(32)}"
+        return key, hashlib.sha256(key.encode()).hexdigest(), key[:12]
+
+    @staticmethod
+    def hash_key(key):
+        return hashlib.sha256(key.encode()).hexdigest()
+
+    def to_dict(self):
+        return {
+            "id": self.id, "project": self.project, "name": self.name,
+            "key_prefix": self.key_prefix, "is_active": self.is_active,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "created_by_id": self.created_by_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
+        }
+
 
 # ─── INCIDENT MANAGEMENT ─────────────────────────────────────────────────────
 
