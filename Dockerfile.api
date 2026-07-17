@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.14-slim
 
 # Runtime deps: postgres client (entrypoint waits for DB), curl (healthcheck).
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client curl \
