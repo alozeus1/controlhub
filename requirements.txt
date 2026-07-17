@@ -29,7 +29,7 @@ google-auth==2.56.0
 google-auth-httplib2==0.4.0
 googleapis-common-protos==1.75.0
 greenlet==3.5.3
-gunicorn==23.0.0
+gunicorn==26.0.0
 httplib2==0.32.0
 idna==3.18
 iniconfig==2.3.0
