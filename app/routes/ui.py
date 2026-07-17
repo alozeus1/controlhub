@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, session
 import requests
-from flask import current_app
 
 ui_bp = Blueprint("ui", __name__)
 

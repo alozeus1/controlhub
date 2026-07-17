@@ -1,6 +1,6 @@
 import pytest
 from datetime import date
-from app.models import Person, Employment, BiweeklyReview, EmployeeReview, User, Notification
+from app.models import Person, Employment, EmployeeReview, User, Notification
 
 
 @pytest.fixture
@@ -92,7 +92,6 @@ def test_inbox_scoped_to_own_notifications_and_actions(client, notif_setup, auth
     with app.app_context():
         mgr_h = auth_header(User.query.get(ids["manager_id"]))
         other = create_user("other@test.com", role="people_manager")
-        other_h = auth_header(other)
 
         n1 = Notification(user_id=ids["manager_id"], type="x", title="For manager")
         n2 = Notification(user_id=other.id, type="x", title="For other")

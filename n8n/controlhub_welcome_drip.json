@@ -1,0 +1,139 @@
+{
+  "name": "ControlHub — Welcome Drip",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "controlhub-email",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c1a11111-1111-4111-8111-111111111111",
+      "name": "ControlHub Events (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "controlhub-email"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify the HMAC-SHA256 signature ControlHub sends in X-ControlHub-Signature.\n// ControlHub signs json.dumps(payload, separators=(',',':')) with N8N_WEBHOOK_SECRET.\nconst crypto = require('crypto');\nconst item = $input.first().json;\nconst secret = $env.N8N_WEBHOOK_SECRET || '';\nconst sig = (item.headers && (item.headers['x-controlhub-signature'] || item.headers['X-ControlHub-Signature'])) || '';\nconst raw = JSON.stringify(item.body);\nif (secret) {\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');\n  if (expected !== sig) {\n    throw new Error('Invalid ControlHub signature — rejecting event');\n  }\n}\nreturn [{ json: item.body }];"
+      },
+      "id": "c2a22222-2222-4222-8222-222222222222",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-subscriber-created",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "subscriber.created",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3a33333-3333-4333-8333-333333333333",
+      "name": "Is subscriber.created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONTROLHUB_BASE_URL }}/admin/email/transactional",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.data.email }}\",\n  \"subject\": \"Welcome to Web Forx, {{ $json.data.name || 'there' }}!\",\n  \"html\": \"<h1>Welcome {{ $json.data.name || '' }} 👋</h1><p>Thanks for joining. We're glad you're here.</p>\"\n}",
+        "options": {}
+      },
+      "id": "c4a44444-4444-4444-8444-444444444444",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "ControlHub X-API-Key" }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      },
+      "id": "c5a55555-5555-4555-8555-555555555555",
+      "name": "Wait 2 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1140, 220],
+      "webhookId": "controlhub-wait-2d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONTROLHUB_BASE_URL }}/admin/email/transactional",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.data.email }}\",\n  \"subject\": \"Getting started with Web Forx\",\n  \"html\": \"<h2>A few tips to get going</h2><p>Here are three things to try first…</p>\"\n}",
+        "options": {}
+      },
+      "id": "c6a66666-6666-4666-8666-666666666666",
+      "name": "Send Follow-up Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "ControlHub X-API-Key" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ControlHub Welcome Drip\n\n**Flow:** ControlHub emits `subscriber.created` → this webhook → HMAC verify → welcome email → wait 2 days → follow-up.\n\n**Setup before activating:**\n1. Create a Header Auth credential named `ControlHub X-API-Key` (Name: `X-API-Key`, Value: the key from `scripts/create_n8n_service_account.py`). Then re-select it on both HTTP Request nodes.\n2. Set n8n env vars: `CONTROLHUB_BASE_URL` (e.g. https://api.controlhub.webforx.tech) and `N8N_WEBHOOK_SECRET` (must match ControlHub's).\n3. Point ControlHub's `N8N_BASE_URL` + `N8N_WEBHOOK_PATH=/webhook/controlhub-email` at this workflow's Production URL.\n\nThe `transactional` endpoint is suppression-aware, so bounced/unsubscribed contacts are skipped automatically.",
+        "height": 320,
+        "width": 420
+      },
+      "id": "c7a77777-7777-4777-8777-777777777777",
+      "name": "README",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [220, 520]
+    }
+  ],
+  "connections": {
+    "ControlHub Events (Webhook)": {
+      "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify Signature": {
+      "main": [[{ "node": "Is subscriber.created?", "type": "main", "index": 0 }]]
+    },
+    "Is subscriber.created?": {
+      "main": [
+        [{ "node": "Send Welcome Email", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [[{ "node": "Wait 2 Days", "type": "main", "index": 0 }]]
+    },
+    "Wait 2 Days": {
+      "main": [[{ "node": "Send Follow-up Email", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "pinData": {},
+  "meta": { "templatecredsSetupCompleted": false }
+}

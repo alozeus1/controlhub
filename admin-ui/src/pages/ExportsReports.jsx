@@ -140,13 +140,20 @@ export default function ExportsReports() {
     }
   };
 
-  const runRequest = async (requestId) => {
+  const runRequest = async (item) => {
+    const requestId = typeof item === "object" ? item.id : item;
+    // Proactively block running a request that's still awaiting approval.
+    if (typeof item === "object" && item.status === "pending_approval") {
+      toast.error("Approval required before this can run.");
+      return;
+    }
     try {
       setRunningId(requestId);
       await api.post(`/admin/agent-requests/${requestId}/run`, {});
       toast.success("Agent request executed");
       await loadData();
     } catch (err) {
+      // Backend returns a clear APPROVAL_REQUIRED message; surface it verbatim.
       toast.error(err.response?.data?.error || err.message || "Failed to run request");
     } finally {
       setRunningId(null);
@@ -310,7 +317,9 @@ export default function ExportsReports() {
                     <td>{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</td>
                     <td>
                       <div className="table-actions">
-                        <Button variant="secondary" size="sm" loading={runningId === item.id} onClick={() => runRequest(item.id)}>Run</Button>
+                        <Button variant="secondary" size="sm" loading={runningId === item.id}
+                                title={item.status === "pending_approval" ? "Approval required before this can run" : undefined}
+                                onClick={() => runRequest(item)}>Run</Button>
                         {item.latest_artifact && (
                           <Button variant="secondary" size="sm" onClick={() => downloadArtifact(item.latest_artifact)}>Download</Button>
                         )}

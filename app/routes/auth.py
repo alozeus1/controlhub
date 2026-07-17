@@ -47,6 +47,30 @@ def login():
             "code": "ACCOUNT_DISABLED"
         }), 403
 
+    # Second factor: if the user has MFA enabled, return a short-lived challenge
+    # instead of full tokens. The client completes it via /auth/mfa/login-verify.
+    try:
+        from app.routes.mfa import mfa_enabled_for, mfa_required_for, issue_mfa_challenge_token
+        if mfa_enabled_for(user):
+            return jsonify({
+                "mfa_required": True,
+                "mfa_token": issue_mfa_challenge_token(user),
+            }), 200
+        # Org policy may require enrollment before full access is granted.
+        if mfa_required_for(user):
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
+            log_login(user, success=True)
+            return jsonify({
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "user": user.to_dict(),
+                "mfa_enrollment_required": True,
+            }), 200
+    except Exception:
+        # Never let the MFA layer block a valid login if it errors.
+        pass
+
     access_token = create_access_token(identity=str(user.id))
     refresh_token = create_refresh_token(identity=str(user.id))
     log_login(user, success=True)

@@ -701,8 +701,6 @@ class AuditLog(db.Model):
 
 # ─── SECRETS MANAGER ─────────────────────────────────────────────────────────
 
-import base64
-from cryptography.fernet import Fernet
 
 class Secret(db.Model):
     __tablename__ = "secret"
@@ -975,6 +973,7 @@ class License(db.Model):
     cost_monthly = db.Column(db.Numeric(12, 2), nullable=True)
     renewal_date = db.Column(db.Date, nullable=True)
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    owner_email = db.Column(db.String(255), nullable=True)  # free-text owner (may not be a user)
     notes = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="active")  # active, expired, cancelled
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -996,7 +995,8 @@ class License(db.Model):
                 "renewal_date": self.renewal_date.isoformat() if self.renewal_date else None,
                 "days_until_renewal": self.days_until_renewal,
                 "owner_id": self.owner_id,
-                "owner_email": self.owner.email if self.owner else None,
+                "owner_email": self.owner_email or (self.owner.email if self.owner else None),
+                "owner": self.owner_email or (self.owner.email if self.owner else None),
                 "notes": self.notes, "status": self.status,
                 "created_by_id": self.created_by_id,
                 "creator_email": self.creator.email if self.creator else None,
@@ -1920,3 +1920,31 @@ class Notification(db.Model):
             "is_read": self.is_read,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# ─── EMAIL CAMPAIGNS MODULE ───────────────────────────────────────────────────
+# Models live in app/models_email.py; imported here so SQLAlchemy metadata and
+# Flask-Migrate autogenerate register them.
+from app.models_email import (  # noqa: E402,F401
+    Subscriber,
+    EmailList,
+    ListMembership,
+    EmailTemplate,
+    Campaign,
+    CampaignSend,
+    Suppression,
+    EmailEvent,
+    EmailSettings,
+    SUBSCRIBER_STATUSES,
+    CAMPAIGN_STATUSES,
+    SUPPRESSION_REASONS,
+)
+
+
+# ─── ADMIN PLATFORM MODULE ────────────────────────────────────────────────────
+from app.models_admin import (  # noqa: E402,F401
+    Role,
+    OrgSettings,
+    UserMfa,
+    SsoConfig,
+)

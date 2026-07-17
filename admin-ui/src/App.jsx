@@ -46,6 +46,18 @@ import TeamLeadAssignments from "./pages/TeamLeadAssignments";
 import MyJourney from "./pages/MyJourney";
 import ExportsReports from "./pages/ExportsReports";
 import AgentRequests from "./pages/AgentRequests";
+import Roles from "./pages/admin/Roles";
+import Organization from "./pages/admin/Organization";
+import Sso from "./pages/admin/Sso";
+import SsoCallback from "./pages/SsoCallback";
+import CampaignsHome from "./pages/campaigns/CampaignsHome";
+import Subscribers from "./pages/campaigns/Subscribers";
+import EmailLists from "./pages/campaigns/EmailLists";
+import ListDetail from "./pages/campaigns/ListDetail";
+import Campaigns from "./pages/campaigns/Campaigns";
+import CampaignDetail from "./pages/campaigns/CampaignDetail";
+import EmailSettings from "./pages/campaigns/EmailSettings";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Settings from "./pages/Settings";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
@@ -53,6 +65,7 @@ import Logout from "./pages/Logout";
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <FeaturesProvider>
       <BrowserRouter>
         <Routes>
@@ -61,6 +74,7 @@ export default function App() {
 
           {/* Public Routes */}
           <Route path="/ui/login" element={<Login />} />
+          <Route path="/ui/sso-callback" element={<SsoCallback />} />
           <Route path="/ui/forgot-password" element={<ForgotPassword />} />
           <Route path="/ui/reset-password" element={<ResetPassword />} />
 
@@ -100,6 +114,10 @@ export default function App() {
             <Route path="/ui/deployments" element={<Deployments />} />
             <Route path="/ui/certificates" element={<Certificates />} />
             <Route path="/ui/feature-flags" element={<FeatureFlags />} />
+            {/* Admin platform */}
+            <Route path="/ui/roles" element={<Roles />} />
+            <Route path="/ui/organization" element={<Organization />} />
+            <Route path="/ui/sso" element={<Sso />} />
             <Route path="/ui/licenses" element={<Licenses />} />
             <Route path="/ui/workflows" element={<Workflows />} />
             <Route path="/ui/workflows/runs/:id" element={<WorkflowRunDetail />} />
@@ -112,6 +130,14 @@ export default function App() {
             <Route path="/ui/my-journey" element={<MyJourney />} />
             <Route path="/ui/exports-reports" element={<ExportsReports />} />
             <Route path="/ui/agent-requests" element={<AgentRequests />} />
+            {/* Email Campaigns module */}
+            <Route path="/ui/email" element={<CampaignsHome />} />
+            <Route path="/ui/email/subscribers" element={<Subscribers />} />
+            <Route path="/ui/email/lists" element={<EmailLists />} />
+            <Route path="/ui/email/lists/:id" element={<ListDetail />} />
+            <Route path="/ui/email/campaigns" element={<Campaigns />} />
+            <Route path="/ui/email/campaigns/:id" element={<CampaignDetail />} />
+            <Route path="/ui/email/settings" element={<EmailSettings />} />
             <Route path="/ui/settings" element={<Settings />} />
             <Route path="/ui/privacy" element={<Privacy />} />
             <Route path="/ui/support" element={<Support />} />
@@ -123,5 +149,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </FeaturesProvider>
+    </ErrorBoundary>
   );
 }

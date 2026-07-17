@@ -1,13 +1,15 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import TopNav from "./TopNav";
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import AIManagerAssistant from "./AIManagerAssistant";
+import ErrorBoundary from "./ErrorBoundary";
 import "./MainLayout.css";
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const currentYear = new Date().getFullYear();
+  const location = useLocation();
 
   return (
     <div className="main-layout">
@@ -18,8 +20,10 @@ export default function MainLayout() {
       <TopNav onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
 
       <main className="main-content">
-        <div className="main-content-inner">
-          <Outlet />
+        <div className="main-content-inner page-transition" key={location.pathname}>
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </div>
 
         <footer className="main-footer">

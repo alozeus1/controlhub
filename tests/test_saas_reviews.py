@@ -1,6 +1,6 @@
 import pytest
-from datetime import datetime, date
-from app.models import Person, Employment, BiweeklyReview, MilestoneReview, User
+from datetime import date
+from app.models import Person, Employment, User
 
 @pytest.fixture
 def reviews_setup(app, create_user):

@@ -10,6 +10,7 @@ const DEFAULT_FEATURES = {
   people: false,
   internship_program: false,
   agent_service: false,
+  email_campaigns: false,
 };
 
 export function FeaturesProvider({ children }) {
@@ -23,7 +24,11 @@ export function FeaturesProvider({ children }) {
         const res = await fetch(`${API_BASE}/features`);
         if (res.ok) {
           const data = await res.json();
-          setFeatures(data);
+          // Guard against a non-object payload (array/null/error) so downstream
+          // consumers (sidebar nav) always get a well-formed flags object.
+          if (data && typeof data === "object" && !Array.isArray(data)) {
+            setFeatures({ ...DEFAULT_FEATURES, ...data });
+          }
         }
       } catch (err) {
         console.warn("Failed to fetch feature flags:", err);

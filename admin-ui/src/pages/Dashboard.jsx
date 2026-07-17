@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import api from "../utils/api";
 import Card, { CardHeader, CardBody } from "../components/ui/Card";
 import { RoleBadge } from "../components/ui/Badge";
-import { PageLoader } from "../components/ui/Spinner";
+import StatCard from "../components/ui/StatCard";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonStats, SkeletonTable } from "../components/ui/Skeleton";
 import dashboardArt from "../assets/dashboard_welcome_art.png";
 import "./Dashboard.css";
 
@@ -30,21 +32,34 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  let user = {};
-  try {
-    user = JSON.parse(localStorage.getItem("user") || "{}");
-  } catch {
-    user = {};
-  }
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+  });
 
   useEffect(() => {
     async function load() {
+      // Refresh the profile from the server so the greeting + role badge are
+      // always correct for a valid session (fixes stale/empty "User" display).
+      try {
+        const meRes = await api.get("/auth/me");
+        const me = meRes.data?.user || meRes.data;
+        if (me && me.email) {
+          setUser(me);
+          localStorage.setItem("user", JSON.stringify(me));
+          sessionStorage.setItem("user", JSON.stringify(me));
+        }
+      } catch (err) {
+        // A 401 is handled by the API client (redirect to login); anything
+        // else we log but don't block the rest of the dashboard.
+        console.warn("Could not refresh profile:", err);
+      }
+
       try {
         const [usersRes, uploadsRes, jobsRes, logsRes] = await Promise.all([
-          api.get("/admin/users?page_size=1").catch(() => ({ data: {} })),
-          api.get("/admin/uploads?page_size=1").catch(() => ({ data: {} })),
-          api.get("/admin/jobs?page_size=1").catch(() => ({ data: {} })),
-          api.get("/admin/audit-logs?page_size=5").catch(() => ({ data: {} })),
+          api.get("/admin/users?page_size=1").catch((e) => ({ _err: e, data: {} })),
+          api.get("/admin/uploads?page_size=1").catch((e) => ({ _err: e, data: {} })),
+          api.get("/admin/jobs?page_size=1").catch((e) => ({ _err: e, data: {} })),
+          api.get("/admin/audit-logs?page_size=5").catch((e) => ({ _err: e, data: {} })),
         ]);
         setStats({
           users: safeGet(usersRes, "data.total", 0),
@@ -52,7 +67,8 @@ export default function Dashboard() {
           jobs: safeGet(jobsRes, "data.total", 0),
           recentLogs: safeArray(safeGet(logsRes, "data.items", [])),
         });
-        setError(null);
+        // Surface a problem instead of silently showing zeros.
+        setError(usersRes._err ? "Some dashboard data could not be loaded. Try refreshing." : null);
       } catch (err) {
         console.error("Failed to load stats:", err);
         setError("Failed to load dashboard data");
@@ -62,8 +78,6 @@ export default function Dashboard() {
     }
     load();
   }, []);
-
-  if (loading) return <PageLoader message="Loading dashboard..." />;
 
   const recentLogs = safeArray(stats.recentLogs);
 
@@ -83,43 +97,26 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="stats-grid">
-        <Link to="/ui/users" className="stat-card">
-          <div className="stat-icon">👥</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.users}</div>
-            <div className="stat-label">Total Users</div>
-          </div>
-        </Link>
-        <Link to="/ui/uploads" className="stat-card">
-          <div className="stat-icon">📁</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.uploads}</div>
-            <div className="stat-label">Total Uploads</div>
-          </div>
-        </Link>
-        <Link to="/ui/jobs" className="stat-card">
-          <div className="stat-icon">⚙️</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.jobs}</div>
-            <div className="stat-label">Total Jobs</div>
-          </div>
-        </Link>
-        <div className="stat-card">
-          <div className="stat-icon">🔐</div>
-          <div className="stat-content">
-            <div className="stat-value"><RoleBadge role={user.role} /></div>
-            <div className="stat-label">Your Role</div>
-          </div>
+      {loading ? (
+        <SkeletonStats count={4} />
+      ) : (
+        <div className="stats-grid">
+          <StatCard to="/ui/users" icon="users" value={stats.users} label="Total Users" accent="cyan" />
+          <StatCard to="/ui/uploads" icon="folder" value={stats.uploads} label="Total Uploads" accent="green" />
+          <StatCard to="/ui/jobs" icon="automation" value={stats.jobs} label="Total Jobs" accent="amber" />
+          <StatCard icon="lock" value={<RoleBadge role={user.role} />} label="Your Role" accent="violet" />
         </div>
-      </div>
+      )}
 
       <div className="dashboard-grid">
         <Card>
           <CardHeader title="Recent Activity" subtitle="Latest system actions" />
           <CardBody>
-            {recentLogs.length === 0 ? (
-              <p className="empty-text">No recent activity</p>
+            {loading ? (
+              <SkeletonTable rows={5} cols={2} />
+            ) : recentLogs.length === 0 ? (
+              <EmptyState icon="document" title="No recent activity"
+                subtitle="System actions will appear here as they happen." />
             ) : (
               <div className="activity-list">
                 {recentLogs.map((log) => (

@@ -1,16 +1,29 @@
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+# Runtime deps: postgres client (entrypoint waits for DB), curl (healthcheck).
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Install pinned dependencies deterministically.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools==83.0.0 wheel==0.47.0 \
+    && pip install --no-cache-dir -r requirements.txt
 
+# Copy application (build context is trimmed by .dockerignore).
 COPY . .
 
-# Copy and use entrypoint
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh /app/entrypoint.worker.sh 2>/dev/null || true
+
+# Run as a dedicated non-root user.
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 80
+
+# Liveness health check hits /healthz.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -fsS http://localhost:80/healthz || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

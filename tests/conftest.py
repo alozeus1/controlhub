@@ -11,6 +11,10 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/15")
     monkeypatch.setenv("RATELIMIT_STORAGE_URL", "memory://")
+    # Test/dev only: no Redis in the test harness, so allow tokens through when
+    # the revocation store is unreachable. Production defaults to fail-CLOSED;
+    # the fail-closed behavior is proven directly in tests/test_jwt_revocation.py.
+    monkeypatch.setenv("JWT_FAIL_OPEN", "true")
     monkeypatch.setenv("FEATURE_SERVICE_ACCOUNTS", "true")
     monkeypatch.setenv("FEATURE_NOTIFICATIONS", "true")
     monkeypatch.setenv("FEATURE_INTEGRATIONS", "true")

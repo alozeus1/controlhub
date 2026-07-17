@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models import Incident, IncidentUpdate
-from app.utils.rbac import require_role, require_active_user
+from app.utils.rbac import require_active_user
 from datetime import datetime
 
 incidents_bp = Blueprint("incidents", __name__)

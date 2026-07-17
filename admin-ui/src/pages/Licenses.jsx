@@ -87,7 +87,14 @@ export default function Licenses() {
     return `$${Number(amount).toFixed(2)}`;
   };
 
-  const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "-");
+  const formatDate = (d) => {
+    if (!d) return "-";
+    // Parse a date-only string (YYYY-MM-DD) as LOCAL to avoid the UTC→local
+    // off-by-one shift; otherwise fall back to normal Date parsing.
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+    const date = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(d);
+    return date.toLocaleDateString();
+  };
 
   const openCreate = () => {
     setEditingLicense(null);
@@ -178,11 +185,11 @@ export default function Licenses() {
           <div className="stat-label">Total Licenses</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{formatCurrency(stats?.monthly_cost)}</div>
+          <div className="stat-value">{formatCurrency(stats?.total_monthly_cost)}</div>
           <div className="stat-label">Monthly Cost</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{formatCurrency(stats?.annual_cost)}</div>
+          <div className="stat-value">{formatCurrency(stats?.total_annual_cost)}</div>
           <div className="stat-label">Annual Cost</div>
         </div>
         <div className="stat-card stat-card-warning">

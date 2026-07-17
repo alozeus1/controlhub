@@ -1,10 +1,24 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db
-from app.models import WorkflowTemplate, WorkflowTemplateStep, WorkflowRun, WorkflowRunStep
+from app.models import User, WorkflowTemplate, WorkflowTemplateStep, WorkflowRun, WorkflowRunStep
 from app.utils.rbac import require_role, require_active_user
 from datetime import datetime
 
 workflows_bp = Blueprint("workflows", __name__)
+
+
+def _as_int_or_none(value):
+    """Coerce a value to int, treating "" / None / bad input as None.
+
+    Guards against the frontend posting empty-string ids into integer FK
+    columns, which raises a DataError (HTTP 500) on Postgres.
+    """
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 @workflows_bp.get("/workflows/templates")
 @require_active_user
@@ -64,21 +78,45 @@ def list_runs():
 @require_active_user
 def start_run():
     data = request.get_json() or {}
-    if not data.get("template_id"):
-        return jsonify({"error": "template_id is required"}), 400
-    template = WorkflowTemplate.query.get_or_404(data["template_id"])
-    run = WorkflowRun(template_id=template.id,
-                      subject_user_id=data.get("subject_user_id"),
-                      subject_name=data.get("subject_name"),
-                      started_by_id=request.current_user.id)
-    db.session.add(run)
-    db.session.flush()
-    for step in sorted(template.steps, key=lambda s: s.order):
-        rs = WorkflowRunStep(run_id=run.id, template_step_id=step.id,
-                             order=step.order, title=step.title,
-                             description=step.description)
-        db.session.add(rs)
-    db.session.commit()
+
+    template_id = _as_int_or_none(data.get("template_id"))
+    if not template_id:
+        return jsonify({"error": "A valid template is required to start a workflow."}), 400
+    template = WorkflowTemplate.query.get(template_id)
+    if not template or not template.is_active:
+        return jsonify({"error": "The selected workflow template no longer exists."}), 404
+
+    # Coerce ids so empty strings from the form never hit an integer column.
+    subject_user_id = _as_int_or_none(data.get("subject_user_id"))
+    if subject_user_id is not None and not User.query.get(subject_user_id):
+        return jsonify({"error": f"No user found with id {subject_user_id}."}), 400
+    subject_name = (data.get("subject_name") or "").strip() or None
+    if not subject_user_id and not subject_name:
+        return jsonify({"error": "Provide a subject user or a subject name."}), 400
+
+    if not template.steps:
+        return jsonify({"error": "This template has no steps and cannot be started."}), 400
+
+    try:
+        run = WorkflowRun(template_id=template.id,
+                          subject_user_id=subject_user_id,
+                          subject_name=subject_name,
+                          started_by_id=request.current_user.id)
+        db.session.add(run)
+        db.session.flush()
+        for step in sorted(template.steps, key=lambda s: s.order):
+            rs = WorkflowRunStep(run_id=run.id, template_step_id=step.id,
+                                 order=step.order, title=step.title,
+                                 description=step.description)
+            db.session.add(rs)
+        db.session.commit()
+    except Exception as exc:  # pragma: no cover - defensive
+        db.session.rollback()
+        from flask import current_app
+        current_app.logger.exception("Failed to start workflow run")
+        return jsonify({"error": "Could not start the workflow due to a server error.",
+                        "detail": str(exc)}), 500
+
     d = run.to_dict()
     d["steps"] = [s.to_dict() for s in sorted(run.run_steps, key=lambda x: x.order)]
     return jsonify(d), 201

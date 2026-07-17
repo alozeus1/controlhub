@@ -230,7 +230,10 @@ def _ensure_agent_request_approved(agent_request):
         return None
     if _approved_request_for_agent(agent_request.id):
         return None
-    return jsonify({"error": "Approved request not found", "code": "APPROVAL_REQUIRED"}), 409
+    return jsonify({
+        "error": "Approval required before this can run.",
+        "code": "APPROVAL_REQUIRED",
+    }), 409
 
 
 def _requested_ttl_minutes(payload):

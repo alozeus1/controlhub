@@ -246,7 +246,7 @@ export default function People() {
            <div className="glass-header">
             <h3><Activity size={20} color="#24c783" /> Active Cohorts</h3>
           </div>
-          <div className="metric-value">{metadata.cohorts?.length || 0}</div>
+          <div className="metric-value">{metadata.active_cohorts ?? (metadata.cohorts?.length || 0)}</div>
           <div className="metric-label">Running Internship Programs</div>
         </motion.div>
       </div>

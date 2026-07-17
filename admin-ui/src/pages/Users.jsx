@@ -7,6 +7,8 @@ import { RoleBadge, StatusBadge } from "../components/ui/Badge";
 import Pagination from "../components/ui/Pagination";
 import Modal, { ConfirmModal } from "../components/ui/Modal";
 import { PageLoader } from "../components/ui/Spinner";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 import "./Users.css";
 
@@ -162,13 +164,16 @@ export default function Users() {
         </CardHeader>
         <CardBody>
           {loading ? (
-            <PageLoader message="Loading users..." />
+            <SkeletonTable rows={6} cols={canManage ? 5 : 4} />
           ) : users.length === 0 ? (
-            <div className="empty-state">
-              <p>No users found</p>
-            </div>
+            <EmptyState
+              icon="users"
+              title="No users found"
+              subtitle="Try adjusting your filters, or add a new user to get started."
+            />
           ) : (
             <>
+              <div className="table-scroll">
               <table className="users-table">
                 <thead>
                   <tr>
@@ -219,6 +224,7 @@ export default function Users() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <Pagination
                 page={pagination.page}
                 pages={pagination.pages}

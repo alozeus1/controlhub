@@ -14,7 +14,7 @@ def generate_jwt(user):
 def decode_jwt(token):
     try:
         return jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
-    except:
+    except Exception:
         return None
 
 def jwt_required(f):

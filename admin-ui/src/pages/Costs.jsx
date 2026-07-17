@@ -235,11 +235,13 @@ export default function Costs() {
               <div className="stat-value">{formatCurrency(summary?.total_spend)}</div>
               <div className="stat-label">Total Spend</div>
             </div>
-            {summary?.by_provider && Object.entries(summary.by_provider).map(([provider, amount]) => (
-              <div className="stat-card" key={provider}>
-                <div className="stat-value">{formatCurrency(amount)}</div>
+            {(Array.isArray(summary?.by_provider) ? summary.by_provider : []).map((row) => (
+              <div className="stat-card" key={row.provider}>
+                <div className="stat-value">{formatCurrency(row.total)}</div>
                 <div className="stat-label">
-                  <Badge variant={PROVIDER_COLORS[provider] || "default"}>{provider.toUpperCase()}</Badge>
+                  <Badge variant={PROVIDER_COLORS[row.provider] || "default"}>
+                    {(row.provider || "other").toUpperCase()}
+                  </Badge>
                 </div>
               </div>
             ))}

@@ -3,7 +3,8 @@ import { useLocation, Link } from "react-router-dom";
 import logoIcon from "../assets/brand/logo-icon.svg";
 import AppIcon from "./ui/AppIcon";
 import NotificationBell from "./NotificationBell";
-import "./TopNav.css";
+import GlobalSearch from "./GlobalSearch";
+import "./topnav.css";
 
 const pageNames = {
   dashboard: "Dashboard",
@@ -102,6 +103,8 @@ export default function TopNav({ onMenuToggle }) {
       </div>
 
       <div className="topnav-right">
+        <GlobalSearch />
+
         <span className={`topnav-env-badge ${envClass}`}>{envLabel}</span>
 
         <NotificationBell />

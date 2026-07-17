@@ -8,6 +8,7 @@ import Badge from "../components/ui/Badge";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import { PageLoader } from "../components/ui/Spinner";
+import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/Toast";
 import Tooltip from "../components/ui/Tooltip";
 import "./Approvals.css";
@@ -52,6 +53,7 @@ export default function Approvals() {
   const [showDecisionModal, setShowDecisionModal] = useState(false);
   const [decisionType, setDecisionType] = useState(null);
   const [comment, setComment] = useState("");
+  const [decisionError, setDecisionError] = useState("");
   const [processing, setProcessing] = useState(false);
   const toast = useToast();
 
@@ -88,12 +90,14 @@ export default function Approvals() {
     setSelectedApproval(approval);
     setDecisionType(type);
     setComment("");
+    setDecisionError("");
     setShowDecisionModal(true);
   };
 
   const handleDecision = async () => {
     if (!selectedApproval || !decisionType) return;
 
+    setDecisionError("");
     try {
       setProcessing(true);
       const endpoint = decisionType === "approve" ? "approve" : "reject";
@@ -112,7 +116,11 @@ export default function Approvals() {
       setShowDecisionModal(false);
       fetchApprovals(pagination.page);
     } catch (err) {
-      toast.error(err.message || `Failed to ${decisionType} request`);
+      // Surface the real reason inline in the modal (and a toast), keeping the
+      // modal open so the user can see why the decision was blocked.
+      const msg = err.response?.data?.error || err.message || `Failed to ${decisionType} request`;
+      setDecisionError(msg);
+      toast.error(msg);
     } finally {
       setProcessing(false);
     }
@@ -175,19 +183,13 @@ export default function Approvals() {
           {loading ? (
             <PageLoader message="Loading approvals..." />
           ) : approvals.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                {statusFilter === "pending" ? "✅" : "📋"}
-              </div>
-              <p className="empty-state-title">
-                {statusFilter === "pending" ? "No pending requests" : "No approval requests"}
-              </p>
-              <p className="empty-state-text">
-                {statusFilter === "pending"
-                  ? "All caught up! No actions awaiting approval."
-                  : "Approval requests will appear here when policies require them."}
-              </p>
-            </div>
+            <EmptyState
+              icon={statusFilter === "pending" ? "shield" : "document"}
+              title={statusFilter === "pending" ? "No pending requests" : "No approval requests"}
+              subtitle={statusFilter === "pending"
+                ? "All caught up — no actions awaiting approval."
+                : "Approval requests will appear here when policies require them."}
+            />
           ) : (
             <>
               <table className="approvals-table">
@@ -302,6 +304,9 @@ export default function Approvals() {
       >
         {selectedApproval && (
           <div className="decision-details">
+            {decisionError && (
+              <div className="decision-error" role="alert">{decisionError}</div>
+            )}
             <div className="decision-summary">
               <p><strong>Action:</strong> {getActionLabel(selectedApproval.action)}</p>
               <p><strong>Target:</strong> {selectedApproval.target_label || `#${selectedApproval.target_id}`}</p>

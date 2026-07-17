@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "backend"]
+    # Group patch/minor to reduce noise; majors get their own PR for review.
+    groups:
+      backend-minor:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/admin-ui"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "frontend"]
+    groups:
+      frontend-minor:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    labels: ["ci"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    labels: ["docker"]

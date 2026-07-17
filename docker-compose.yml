@@ -29,9 +29,10 @@ services:
     ports:
       - "4566:4566"
     environment:
-      SERVICES: s3
+      SERVICES: s3,ses,sns
       DEBUG: 0
       S3_BUCKET_NAME: controlhub-uploads
+      SES_FROM_ADDRESS: campaigns@controlhub.local
     volumes:
       - "./scripts/localstack:/etc/localstack/init/ready.d"
       - "localstack_data:/var/lib/localstack"
@@ -57,7 +58,7 @@ services:
     env_file:
       - .env
     environment:
-      SQLALCHEMY_DATABASE_URI: postgresql://postgres:password@db:5432/flaskdb
+      SQLALCHEMY_DATABASE_URI: postgresql://postgres:password@db:5432/flaskdb # secret-scan:allow
       FLASK_APP: wsgi.py
       FLASK_ENV: development
       DB_HOST: db
@@ -78,6 +79,45 @@ services:
       CORS_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001,http://nginx:80"
       # JWT
       JWT_REFRESH_TOKEN_EXPIRES: "604800"
+      # Email campaigns / SES (LocalStack)
+      FEATURE_EMAIL_CAMPAIGNS: "true"
+      EMAIL_PROVIDER: localstack
+      SES_FROM_ADDRESS: campaigns@controlhub.local
+      SES_FROM_NAME: "Web Forx"
+      SES_SENDING_ENABLED: "true"
+      PUBLIC_BASE_URL: "http://localhost:9000"
+      CAMPAIGN_QUEUE: campaigns
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql://postgres:password@db:5432/flaskdb # secret-scan:allow
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_PROVIDER: localstack
+      EMAIL_PROVIDER: localstack
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_FROM_ADDRESS: campaigns@controlhub.local
+      SES_FROM_NAME: "Web Forx"
+      SES_SENDING_ENABLED: "true"
+      PUBLIC_BASE_URL: "http://localhost:9000"
+      FEATURE_EMAIL_CAMPAIGNS: "true"
+      CAMPAIGN_QUEUE: campaigns
+    # Override the Gunicorn entrypoint: run the RQ worker instead.
+    entrypoint: ["/app/entrypoint.worker.sh"]
 
   ui:
     build:

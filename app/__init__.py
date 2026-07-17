@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from config import get_config
 from app.routes.ui import ui_bp
@@ -36,6 +36,10 @@ def create_app():
     # Security headers
     init_security_headers(app)
 
+    # Centralized JSON error handling (consistent, production-safe responses)
+    from app.error_handlers import register_error_handlers
+    register_error_handlers(app)
+
     # JWT token blocklist (Redis-backed)
     _redis = None
     try:
@@ -45,15 +49,36 @@ def create_app():
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
-        if _redis is None:
-            return False
+        # Read the live redis handle + policy at call time so behavior is
+        # testable and operators can flip the policy without a code change.
+        from flask import current_app, g
+        redis_client = getattr(current_app, "_redis", None)
+        fail_open = current_app.config.get("JWT_FAIL_OPEN", False)
         jti = jwt_payload.get("jti")
+
+        if redis_client is None:
+            current_app.logger.error(
+                "JWT revocation store unavailable (no redis); failing %s",
+                "OPEN" if fail_open else "CLOSED")
+            return not fail_open  # closed => treat as revoked (deny)
         try:
-            return _redis.get(f"blocklist:{jti}") is not None
-        except Exception:
-            # If Redis is unavailable, fail open for auth checks rather than
-            # denying all requests.
-            return False
+            return redis_client.get(f"blocklist:{jti}") is not None
+        except Exception as exc:
+            # Cannot verify revocation state. Fail CLOSED by default so revoked
+            # or compromised tokens cannot be used during a Redis outage.
+            current_app.logger.error(
+                "JWT revocation check failed (request_id=%s): %s; failing %s",
+                getattr(g, "request_id", None), exc, "OPEN" if fail_open else "CLOSED")
+            return not fail_open
+
+    @jwt.revoked_token_loader
+    def _revoked_token_response(jwt_header, jwt_payload):
+        from flask import g
+        return jsonify({
+            "error": "Your session is no longer valid. Please sign in again.",
+            "code": "TOKEN_REVOKED",
+            "request_id": getattr(g, "request_id", None),
+        }), 401
 
     # Expose redis on app for use in routes
     app._redis = _redis
@@ -82,6 +107,12 @@ def create_app():
     from app.routes.performance import performance_bp
     from app.routes.notifications_inbox import notifications_inbox_bp
     from app.routes.agent_service import agent_bp
+    from app.routes.campaigns import campaigns_bp, public_email_bp
+    from app.routes.roles import roles_bp
+    from app.routes.org_settings import org_settings_bp
+    from app.routes.mfa import mfa_bp
+    from app.routes.sso import sso_bp, sso_public_bp
+    from app.routes.search import search_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -107,6 +138,16 @@ def create_app():
     app.register_blueprint(performance_bp, url_prefix="/admin")
     app.register_blueprint(notifications_inbox_bp, url_prefix="/admin")
     app.register_blueprint(agent_bp, url_prefix="/admin")
+    app.register_blueprint(campaigns_bp, url_prefix="/admin")
+    # Public (no /admin prefix, no auth): SNS webhook + one-click unsubscribe
+    app.register_blueprint(public_email_bp)
+    # Admin platform features
+    app.register_blueprint(roles_bp, url_prefix="/admin")
+    app.register_blueprint(org_settings_bp, url_prefix="/admin")
+    app.register_blueprint(sso_bp, url_prefix="/admin")
+    app.register_blueprint(search_bp, url_prefix="/admin")
+    app.register_blueprint(mfa_bp, url_prefix="/auth")
+    app.register_blueprint(sso_public_bp, url_prefix="/auth")
     app.register_blueprint(ui_bp, url_prefix="/ui")
 
     return app

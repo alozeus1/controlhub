@@ -245,20 +245,25 @@
   right: 0;
   margin-top: var(--spacing-xs);
   min-width: 180px;
-  background: rgba(13, 21, 38, 0.97);
+  background: rgba(13, 21, 38, 0.85);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-8px);
-  transition: all var(--transition-fast);
+  transform: translateY(-8px) scale(0.97);
+  transform-origin: top right;
+  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+              visibility 150ms;
 }
 
 .topnav-dropdown.open .topnav-dropdown-menu {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .topnav-dropdown-item {

@@ -26,7 +26,11 @@ def cost_summary():
     by_period = db.session.query(CostEntry.period, func.sum(CostEntry.amount)).group_by(CostEntry.period).order_by(CostEntry.period.desc()).limit(12).all()
     by_team = db.session.query(CostEntry.team, func.sum(CostEntry.amount)).group_by(CostEntry.team).all()
     by_provider = db.session.query(CostEntry.cloud_provider, func.sum(CostEntry.amount)).group_by(CostEntry.cloud_provider).all()
+    total_spend = db.session.query(func.coalesce(func.sum(CostEntry.amount), 0)).scalar()
+    total_entries = db.session.query(func.count(CostEntry.id)).scalar()
     return jsonify({
+        "total_spend": float(total_spend or 0),
+        "total_entries": int(total_entries or 0),
         "by_period": [{"period": p, "total": float(t)} for p, t in by_period],
         "by_team": [{"team": t or "Unassigned", "total": float(a)} for t, a in by_team],
         "by_provider": [{"provider": p, "total": float(a)} for p, a in by_provider],

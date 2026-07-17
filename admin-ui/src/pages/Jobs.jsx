@@ -4,6 +4,8 @@ import Card, { CardHeader, CardBody } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Pagination from "../components/ui/Pagination";
 import { PageLoader } from "../components/ui/Spinner";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonTable } from "../components/ui/Skeleton";
 import "./Jobs.css";
 
 const normalizeArray = (response) => {
@@ -67,13 +69,16 @@ export default function Jobs() {
         <CardHeader title={`${pagination.total} Jobs`} />
         <CardBody>
           {loading ? (
-            <PageLoader message="Loading jobs..." />
+            <SkeletonTable rows={6} cols={5} />
           ) : jobs.length === 0 ? (
-            <div className="empty-state">
-              <p>No jobs found</p>
-            </div>
+            <EmptyState
+              icon="automation"
+              title="No jobs found"
+              subtitle="Background jobs will appear here as they are triggered."
+            />
           ) : (
             <>
+              <div className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -100,6 +105,7 @@ export default function Jobs() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <Pagination
                 page={pagination.page}
                 pages={pagination.pages}
