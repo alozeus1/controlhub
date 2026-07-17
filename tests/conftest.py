@@ -11,7 +11,8 @@ def app(tmp_path, monkeypatch):
     configured_db_uri = os.environ.get("SQLALCHEMY_DATABASE_URI")
     allow_external_reset = os.environ.get("ALLOW_TEST_DATABASE_RESET", "").lower() in ("1", "true", "yes")
     if configured_db_uri:
-        if not allow_external_reset:
+        is_sqlite = configured_db_uri.startswith("sqlite:")
+        if not is_sqlite and not allow_external_reset:
             raise RuntimeError(
                 "Refusing to run tests against an externally configured database "
                 "without ALLOW_TEST_DATABASE_RESET=true"
