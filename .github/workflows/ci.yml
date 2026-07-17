@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, prod-readiness-ci-operator-gates]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 # Mandatory release gates. None use continue-on-error; a failure fails the run.
 jobs:

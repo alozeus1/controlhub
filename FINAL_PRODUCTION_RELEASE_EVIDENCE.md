@@ -16,7 +16,7 @@ Final verdict: **NO-GO**
 | Working tree state | Clean after evidence commit |
 | Production decision | **NO-GO** because A-1 rotation/revocation and multiple live operational gates remain incomplete |
 
-Note: this evidence file is committed after the code release-candidate commit. The pushed branch head and CI run for that head must be recorded after GitHub Actions completes.
+Note: this evidence file is committed after the code release-candidate commit. The final pushed branch head and CI run for that head are recorded in the release-owner final response after GitHub Actions completes.
 
 ## A-1 Through A-12 Status Matrix
 
