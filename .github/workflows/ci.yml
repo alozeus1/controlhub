@@ -13,8 +13,8 @@ jobs:
   backend-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.10" }
       - run: pip install flake8
       # Enforce correctness codes (unused imports, bare except, redefinition,
@@ -26,14 +26,15 @@ jobs:
   backend-test-sqlite:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.10" }
       - run: pip install -r requirements.txt
       - name: Run tests (SQLite, fast feedback)
         env:
           SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
           FLASK_APP: wsgi.py
+          ALLOW_TEST_DATABASE_RESET: "true"
         run: pytest tests/ -q
 
   # 3/4/5. PostgreSQL migration from empty DB + drift check + tests on Postgres
@@ -55,8 +56,8 @@ jobs:
       FLASK_APP: wsgi.py
       ALLOW_TEST_DATABASE_RESET: "true"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.10" }
       - run: pip install -r requirements.txt
       - name: Migrate empty DB to head
@@ -76,8 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: admin-ui } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: "20", cache: "npm", cache-dependency-path: admin-ui/package-lock.json }
       - run: npm ci
       - run: npm run lint
@@ -89,14 +90,14 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.10" }
       - name: pip-audit (fail on high/critical)
         run: |
           pip install pip-audit
           pip-audit -r requirements.txt --strict
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "20" }
       - name: npm audit (fail on high)
         working-directory: admin-ui
@@ -106,9 +107,9 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -116,8 +117,8 @@ jobs:
   repo-policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.10" }
       - run: python scripts/check_large_files.py
 
@@ -126,7 +127,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -169,7 +170,7 @@ jobs:
   deploy-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate compose config
         run: |
           touch .env

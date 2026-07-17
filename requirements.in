@@ -9,7 +9,7 @@ werkzeug
 boto3
 redis<6
 rq
-Flask-JWT-Extended==4.6.0
+Flask-JWT-Extended==4.7.4
 requests
 pytest
 pytest-cov
@@ -20,7 +20,7 @@ Flask-Mail
 email-validator
 marshmallow
 flask-marshmallow
-cryptography>=48.0.1
+cryptography>=49.0.0
 openpyxl
 python-docx
 google-api-python-client
