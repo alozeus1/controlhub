@@ -52,6 +52,7 @@ jobs:
     env:
       SQLALCHEMY_DATABASE_URI: "postgresql://postgres:password@localhost:5432/controlhub" # secret-scan:allow
       FLASK_APP: wsgi.py
+      ALLOW_TEST_DATABASE_RESET: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -119,13 +120,33 @@ jobs:
         with: { python-version: "3.10" }
       - run: python scripts/check_large_files.py
 
-  # 12/13/14. Container build, vuln scan, non-root + healthcheck verification
+  # 12/13/14/15/16. Filesystem scan, container build, SBOM, vuln scan,
+  # non-root + healthcheck verification
   container:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
       - name: Build API image
         run: docker build -f Dockerfile.api -t controlhub-api:ci .
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: controlhub-api:ci
+          format: cyclonedx
+          output: controlhub-api.sbom.cdx.json
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlhub-api-sbom
+          path: controlhub-api.sbom.cdx.json
       - name: Verify image runs as non-root
         run: |
           uid=$(docker run --rm --entrypoint id controlhub-api:ci -u)

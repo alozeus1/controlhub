@@ -15,7 +15,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, current_app
 
-from app.extensions import db
+from app.extensions import db, limiter
 from app.utils.rbac import require_scope
 from app.models import (
     Subscriber, EmailList, ListMembership,
@@ -343,6 +343,7 @@ def update_campaign(cid):
 
 
 @campaigns_bp.post("/email/campaigns/<int:cid>/test")
+@limiter.limit("10 per minute")
 @require_scope("email:send", also_role="admin")
 def send_test(cid):
     """Send a one-off test to a supplied address (does not touch counters)."""
@@ -370,6 +371,7 @@ def send_test(cid):
 
 
 @campaigns_bp.post("/email/campaigns/<int:cid>/send")
+@limiter.limit("30 per hour")
 @require_scope("email:send", also_role="admin")
 def send_campaign(cid):
     guard = _feature_guard()

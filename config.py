@@ -82,6 +82,9 @@ class Config:
         self.EMAIL_NOTIFICATIONS_ENABLED = os.environ.get("EMAIL_NOTIFICATIONS_ENABLED", "false").lower() == "true"
         self.RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
         self.RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "controlhub@notifications.webforxtech.com")
+        self.ALLOW_PRODUCTION_INTEGRATION_MOCKS = (
+            os.environ.get("ALLOW_PRODUCTION_INTEGRATION_MOCKS", "false").lower() == "true"
+        )
 
         # Agent service controls
         self.AGENT_EXPORT_APPROVAL_ROW_THRESHOLD = int(os.environ.get("AGENT_EXPORT_APPROVAL_ROW_THRESHOLD", 200))

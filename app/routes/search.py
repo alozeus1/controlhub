@@ -7,7 +7,7 @@ the matching permission, so search never leaks entities a user can't manage.
 """
 from flask import Blueprint, jsonify, request
 
-from app.extensions import db
+from app.extensions import db, limiter
 from app.utils.rbac import require_active_user
 from app.permissions import has_permission
 
@@ -21,6 +21,7 @@ def _like(term):
 
 
 @search_bp.get("/search")
+@limiter.limit("60 per minute")
 @require_active_user
 def global_search():
     q = (request.args.get("q") or "").strip()
