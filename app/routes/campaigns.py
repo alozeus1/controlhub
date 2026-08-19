@@ -19,7 +19,7 @@ from app.extensions import db, limiter
 from app.utils.rbac import require_scope
 from app.models import (
     Subscriber, EmailList, ListMembership,
-    Campaign, CampaignSend, Suppression, EmailEvent, EmailSettings,
+    Campaign, CampaignSend, Suppression, EmailSettings,
 )
 from app.services.campaigns import (
     SubscriberService, ListService, SuppressionService, CampaignService,
