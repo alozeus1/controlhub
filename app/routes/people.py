@@ -5,7 +5,8 @@ from datetime import date, datetime
 from flask import Blueprint, current_app, jsonify, request, Response
 from sqlalchemy import and_, or_
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.utils.rate_limit import identity_rate_key
 from app.models import (
     Person,
     Employment,
@@ -813,6 +814,7 @@ def change_linked_user_role(person_id):
 
 
 @people_bp.get("/people/export/csv")
+@limiter.limit("20 per hour", key_func=identity_rate_key)
 @require_role("people_manager")
 def export_people_csv():
     error = check_feature_enabled()

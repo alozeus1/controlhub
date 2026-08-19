@@ -20,7 +20,7 @@ Flask-Mail
 email-validator
 marshmallow
 flask-marshmallow
-cryptography>=49.0.0
+cryptography>=50.0.0
 openpyxl
 python-docx
 google-api-python-client

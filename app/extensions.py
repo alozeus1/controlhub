@@ -32,7 +32,7 @@ class _NoopLimiter:
     def init_app(self, app):
         return None
 
-    def limit(self, _rule):
+    def limit(self, *_args, **_kwargs):
         def decorator(fn):
             return fn
         return decorator

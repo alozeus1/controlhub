@@ -29,7 +29,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      SERVICES: s3,ses,sns
+      SERVICES: s3,ses,sns,kms,logs
       DEBUG: 0
       S3_BUCKET_NAME: controlhub-uploads
       SES_FROM_ADDRESS: campaigns@controlhub.local
@@ -77,6 +77,9 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       # CORS
       CORS_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001,http://nginx:80"
+      # nginx is the single proxy hop in this topology — required for per-IP
+      # rate limiting and truthful audit source IPs.
+      TRUSTED_PROXY_COUNT: "1"
       # JWT
       JWT_REFRESH_TOKEN_EXPIRES: "604800"
       # Email campaigns / SES (LocalStack)

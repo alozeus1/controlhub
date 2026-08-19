@@ -7,6 +7,7 @@ from app.models import Secret, SecretAccessLog, ApprovalRequest
 from app.services.secret_crypto import encrypt_secret, decrypt_secret
 from app.utils.audit import log_action
 from app.utils.rbac import require_role
+from app.permissions import require_elevation
 
 secrets_bp = Blueprint("secrets", __name__)
 
@@ -87,6 +88,7 @@ def get_secret(secret_id):
 @secrets_bp.post("/secrets/<int:secret_id>/reveal")
 @limiter.limit("20 per minute")
 @require_role("admin")
+@require_elevation("manage_secrets")
 def reveal_secret(secret_id):
     s = Secret.query.get_or_404(secret_id)
     actor = request.current_user
@@ -119,7 +121,7 @@ def reveal_secret(secret_id):
                 "approval_request": approval_request.to_dict(),
             }), 202
 
-    revealed_value = decrypt_secret(s.value_encrypted)
+    revealed_value = decrypt_secret(s.value_encrypted, purpose="vault_secret")
     access_log = SecretAccessLog(
         secret_id=s.id,
         user_id=actor.id,
@@ -143,6 +145,7 @@ def reveal_secret(secret_id):
 
 @secrets_bp.post("/secrets")
 @require_role("admin")
+@require_elevation("manage_secrets")
 def create_secret():
     data = request.get_json() or {}
     errors = []
@@ -164,7 +167,7 @@ def create_secret():
         description=data.get("description"),
         project=data.get("project"),
         environment=data.get("environment"),
-        value_encrypted=encrypt_secret(data["value"]),
+        value_encrypted=encrypt_secret(data["value"], purpose="vault_secret"),
         tags=data.get("tags"),
         expires_at=expires_at,
         created_by_id=actor.id,
@@ -191,6 +194,7 @@ def create_secret():
 
 @secrets_bp.put("/secrets/<int:secret_id>")
 @require_role("admin")
+@require_elevation("manage_secrets")
 def update_secret(secret_id):
     s = Secret.query.get_or_404(secret_id)
     data = request.get_json() or {}
@@ -226,7 +230,7 @@ def update_secret(secret_id):
     if "value" in data:
         if not isinstance(data["value"], str) or not data["value"]:
             return _validation_error(["value must be a non-empty string when provided"])
-        s.value_encrypted = encrypt_secret(data["value"])
+        s.value_encrypted = encrypt_secret(data["value"], purpose="vault_secret")
         s.last_rotated_at = datetime.utcnow()
         access_log = SecretAccessLog(
             secret_id=s.id,
@@ -263,6 +267,7 @@ def update_secret(secret_id):
 
 @secrets_bp.delete("/secrets/<int:secret_id>")
 @require_role("admin")
+@require_elevation("manage_secrets")
 def delete_secret(secret_id):
     s = Secret.query.get_or_404(secret_id)
     actor = request.current_user

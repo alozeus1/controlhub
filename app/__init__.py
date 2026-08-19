@@ -16,6 +16,15 @@ def create_app():
     # before routing — some client-side proxies/extensions drop those verbs.
     app.wsgi_app = MethodOverrideMiddleware(app.wsgi_app)
 
+    # Trust exactly TRUSTED_PROXY_COUNT hops of X-Forwarded-*. This makes
+    # remote_addr the real client IP, which per-IP rate limiting and audit
+    # attribution both depend on. Counting hops (rather than trusting the header
+    # outright) is what stops a client from forging its own source IP.
+    hops = int(app.config.get("TRUSTED_PROXY_COUNT", 0))
+    if hops > 0:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
+
     # CORS — read allowed origins from config (comma-separated env var)
     origins = [o.strip() for o in app.config.get("CORS_ORIGINS", "").split(",") if o.strip()]
     CORS(app, origins=origins, supports_credentials=True)
@@ -39,6 +48,10 @@ def create_app():
     from app.error_handlers import register_error_handlers
     register_error_handlers(app)
 
+    # Operational CLI: audit chain verification/mirroring, secret rewrap.
+    from app.cli import register_cli
+    register_cli(app)
+
     # JWT token blocklist (Redis-backed)
     _redis = None
     try:
@@ -46,14 +59,41 @@ def create_app():
     except Exception:
         pass
 
+    @jwt.additional_claims_loader
+    def add_session_claims(identity):
+        """Stamp every token with the user's revocation epoch."""
+        from app.models import User
+        from app.services.session_security import session_epoch_for
+        try:
+            user = User.query.get(int(identity))
+        except (TypeError, ValueError):
+            return {}
+        return {"session_epoch": session_epoch_for(user)} if user else {}
+
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
         # Read the live redis handle + policy at call time so behavior is
         # testable and operators can flip the policy without a code change.
         from flask import current_app, g
+        from app.services import session_security
         redis_client = getattr(current_app, "_redis", None)
         fail_open = current_app.config.get("JWT_FAIL_OPEN", False)
         jti = jwt_payload.get("jti")
+
+        # A bumped epoch retires every token issued before it — this is what
+        # makes "disable the account" take effect now rather than in up to an
+        # access-token TTL. Checked before Redis so it holds during an outage.
+        try:
+            if not session_security.epoch_is_current(jwt_payload):
+                return True
+        except Exception as exc:
+            current_app.logger.error("session epoch check failed: %s; failing CLOSED", exc)
+            return True
+
+        # Reuse detection kills a whole refresh family; honor that for the
+        # access tokens minted from it, not just the refresh token itself.
+        if session_security.family_revoked(jwt_payload.get("family")):
+            return True
 
         if redis_client is None:
             current_app.logger.error(
@@ -112,6 +152,7 @@ def create_app():
     from app.routes.mfa import mfa_bp
     from app.routes.sso import sso_bp, sso_public_bp
     from app.routes.search import search_bp
+    from app.routes.elevation import elevation_bp
 
     app.register_blueprint(general_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -145,6 +186,7 @@ def create_app():
     app.register_blueprint(org_settings_bp, url_prefix="/admin")
     app.register_blueprint(sso_bp, url_prefix="/admin")
     app.register_blueprint(search_bp, url_prefix="/admin")
+    app.register_blueprint(elevation_bp, url_prefix="/admin")
     app.register_blueprint(mfa_bp, url_prefix="/auth")
     app.register_blueprint(sso_public_bp, url_prefix="/auth")
     # NOTE: The legacy server-rendered `ui` blueprint was removed (audit A-5).

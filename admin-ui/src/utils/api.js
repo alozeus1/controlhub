@@ -1,4 +1,5 @@
 import { getToken, tryRefreshToken, clearTokens } from "./auth";
+import { promptForElevation } from "./elevation";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:9000";
 
@@ -73,6 +74,16 @@ async function request(method, path, body = null, retry = true, requestOptions =
 
   const data = await parseResponseBody(res, responseType);
   const headers = Object.fromEntries(res.headers.entries());
+
+  // On 403 ELEVATION_REQUIRED, prompt for just-in-time elevation and, if the
+  // user completes it, retry once. Mirrors the silent-refresh path above so
+  // individual pages never have to handle elevation themselves.
+  if (res.status === 403 && data?.code === "ELEVATION_REQUIRED" && retry) {
+    const elevated = await promptForElevation(data.permission_key);
+    if (elevated) {
+      return request(method, path, body, false, requestOptions);
+    }
+  }
 
   if (!res.ok) {
     // Surface validation details so users see WHAT failed, not just "Validation failed"

@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from app.extensions import db
 from app.models import OrgSettings
 from app.utils.rbac import require_active_user
-from app.permissions import require_permission
+from app.permissions import require_elevated_permission
 from app.utils.audit import log_action
 
 org_settings_bp = Blueprint("org_settings", __name__)
@@ -24,7 +24,7 @@ def get_org_settings():
 
 
 @org_settings_bp.put("/org-settings")
-@require_permission("manage_org_settings")
+@require_elevated_permission("manage_org_settings")
 def update_org_settings():
     data = request.get_json() or {}
     s = OrgSettings.get()

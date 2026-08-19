@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars and edit. Do NOT commit terraform.tfvars.
+
+aws_region  = "us-east-1"
+environment = "prod"
+
+# Verified SES domains. Enforced at the IAM layer via a ses:FromAddress
+# condition, so it holds even if the application check is bypassed.
+ses_sending_domains = ["webforxtech.com", "dev.webforxtech.com"]
+
+# REQUIRED in practice. Must NOT be a ControlHub-managed mailbox — an alert an
+# attacker can silence from inside the system they compromised is not an alert.
+alert_email = "security@webforxtech.com"
+
+# Audit mirror retention. Must outlast your incident-discovery window.
+audit_log_retention_days = 400
+
+# Object Lock COMPLIANCE mode. Irreversible for the retention period, including
+# for the root account. Enable once you have decided the retention window.
+# enable_audit_worm_bucket  = true
+# audit_worm_retention_days = 365
+
+# Set false if the artifacts bucket already exists and is managed elsewhere.
+create_artifacts_bucket = true
+# artifacts_bucket_name = "controlhub-prod-artifacts"
+artifact_expiry_days = 30
+
+# Tune from a week of real traffic before trusting these.
+kms_decrypt_alarm_threshold = 50
+ses_send_alarm_threshold    = 500
+
+# Set false if an organization-level CloudTrail already covers this account.
+enable_cloudtrail = true

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app.models import User, Job, AuditLog, ROLE_LEVELS
-from app.extensions import db
+from app.extensions import db, limiter
+from app.utils.rate_limit import identity_rate_key
 from app.utils.rbac import (
     require_role,
     can_manage_user,
@@ -201,6 +202,16 @@ def update_user(user_id):
 
     if changes:
         db.session.commit()
+        # A role change or a disable must take effect on the target's *existing*
+        # tokens, not only on their next login — otherwise a demoted or disabled
+        # account keeps its old power for up to a full access-token TTL.
+        if "role" in changes or "is_active" in changes:
+            from app.services.session_security import bump_session_epoch
+            from app.services.privilege import revoke_all_for_user
+            bump_session_epoch(target, "role_or_status_change")
+            # Drop any activated privileges too — a demoted admin must not keep
+            # an elevation for a permission they are no longer eligible for.
+            revoke_all_for_user(target, "role_or_status_change", actor=actor)
         return jsonify({"message": "User updated", "user": target.to_dict(), "changes": changes})
 
     return jsonify({"message": "No changes made", "user": target.to_dict()})
@@ -360,6 +371,7 @@ def list_audit_actions():
 
 
 @admin_bp.get("/audit-logs/export")
+@limiter.limit("20 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def export_audit_logs():
     """Export the (filtered) audit log as CSV. Honors the same filters as the list."""

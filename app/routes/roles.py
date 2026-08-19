@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, request
 from app.extensions import db
 from app.models import Role, User
 from app.permissions import (
-    require_permission, PERMISSION_CATALOG, ALL_PERMISSION_KEYS,
+    require_elevated_permission, PERMISSION_CATALOG, ALL_PERMISSION_KEYS,
     SYSTEM_ROLE_SEED, DEFAULT_ROLE_PERMISSIONS,
 )
 from app.utils.audit import log_action
@@ -36,13 +36,13 @@ def _ensure_seeded():
 
 
 @roles_bp.get("/permissions/catalog")
-@require_permission("manage_roles")
+@require_elevated_permission("manage_roles")
 def permissions_catalog():
     return jsonify({"permissions": PERMISSION_CATALOG})
 
 
 @roles_bp.get("/roles")
-@require_permission("manage_roles")
+@require_elevated_permission("manage_roles")
 def list_roles():
     _ensure_seeded()
     roles = Role.query.order_by(Role.level.desc()).all()
@@ -57,7 +57,7 @@ def list_roles():
 
 
 @roles_bp.post("/roles")
-@require_permission("manage_roles")
+@require_elevated_permission("manage_roles")
 def create_role():
     _ensure_seeded()
     data = request.get_json() or {}
@@ -84,7 +84,7 @@ def create_role():
 
 
 @roles_bp.patch("/roles/<int:role_id>")
-@require_permission("manage_roles")
+@require_elevated_permission("manage_roles")
 def update_role(role_id):
     _ensure_seeded()
     role = Role.query.get(role_id)
@@ -112,7 +112,7 @@ def update_role(role_id):
 
 
 @roles_bp.delete("/roles/<int:role_id>")
-@require_permission("manage_roles")
+@require_elevated_permission("manage_roles")
 def delete_role(role_id):
     role = Role.query.get(role_id)
     if not role:

@@ -56,7 +56,10 @@ export async function tryRefreshToken() {
 
     const data = await res.json();
     if (data.access_token) {
-      sessionStorage.setItem("access_token", data.access_token);
+      // The server rotates the refresh token on every use and treats a replayed
+      // one as theft. Storing the new one is required — keeping the old would
+      // trip reuse detection on the next refresh and kill the session.
+      setTokens(data.access_token, data.refresh_token);
       return true;
     }
   } catch {

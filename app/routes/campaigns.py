@@ -19,7 +19,7 @@ from app.extensions import db, limiter
 from app.utils.rbac import require_scope
 from app.models import (
     Subscriber, EmailList, ListMembership,
-    Campaign, CampaignSend, Suppression, EmailEvent, EmailSettings,
+    Campaign, CampaignSend, Suppression, EmailSettings,
 )
 from app.services.campaigns import (
     SubscriberService, ListService, SuppressionService, CampaignService,
@@ -612,16 +612,15 @@ def ses_webhook():
 
     msg_type = payload.get("Type")
     if msg_type == "SubscriptionConfirmation":
-        # Confirm by fetching SubscribeURL (SNS handshake).
+        # Confirm by fetching SubscribeURL (SNS handshake). The URL is
+        # request-supplied, so confirm_sns_subscription pins it to an SNS host
+        # and refuses redirects before issuing the request.
         sub_url = payload.get("SubscribeURL")
-        logger.info("SNS SubscriptionConfirmation received: %s", sub_url)
-        try:
-            if sub_url and not email_ses._is_localstack():
-                from urllib.request import urlopen
-                urlopen(sub_url, timeout=5)  # nosec - AWS SNS confirmation URL
-        except Exception as exc:
-            logger.warning("SNS confirm fetch failed: %s", exc)
-        return jsonify({"confirmed": True})
+        logger.info("SNS SubscriptionConfirmation received")
+        confirmed = True
+        if sub_url and not email_ses._is_localstack():
+            confirmed = email_ses.confirm_sns_subscription(sub_url)
+        return jsonify({"confirmed": confirmed}), (200 if confirmed else 400)
 
     # Notification: the SES event JSON is a string in payload["Message"].
     try:
@@ -650,11 +649,12 @@ def ses_webhook():
         email = dests[0] if dests else None
 
     if event_type == "Bounce-Transient":
-        # Log but don't suppress transient bounces.
-        db.session.add(EmailEvent(ses_message_id=ses_message_id, event_type="Bounce-Transient",
-                                  email=email, raw=ses_event))
-        db.session.commit()
-        return jsonify({"processed": "transient"})
+        # Log but don't suppress transient bounces. Routed through
+        # process_ses_event rather than inserted directly so a replayed
+        # notification de-duplicates instead of tripping the uniqueness
+        # constraint and returning a 500.
+        result = CampaignService.process_ses_event("Bounce-Transient", ses_message_id, email, ses_event)
+        return jsonify({"processed": "transient", **result})
 
     result = CampaignService.process_ses_event(event_type, ses_message_id, email, ses_event)
     return jsonify(result)
