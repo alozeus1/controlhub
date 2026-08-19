@@ -9,7 +9,7 @@ else is needed to continue.
 | --- | --- |
 | Branch | `security-gauntlet-controlhub` |
 | Baseline | `d3a4298` — carried-over zero-trust phase 1–4 work, unmodified |
-| Head | `c68f3be` |
+| Head | `dbe109d` (last control commit `c68f3be`) |
 | Controls landed | 6 |
 | Suite | 335 passing (264 at baseline) |
 | Local gates | flake8 clean; `dump_endpoint_inventory.py --check` exit 0 |
