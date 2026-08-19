@@ -16,40 +16,28 @@
 
 ## Unregistered public routes
 
-**FAIL — these are reachable without an authenticated principal and are not allowlisted:**
-
-| Methods | Rule | Endpoint |
-| --- | --- | --- |
-| GET | `/` | `general.home` |
-| GET | `/admin/feature-flags/sdk/<project>` | `feature_flags.sdk_endpoint` |
-| POST | `/auth/forgot-password` | `auth.forgot_password` |
-| POST | `/auth/mfa/login-verify` | `mfa.mfa_login_verify` |
-| POST | `/auth/reset-password` | `auth.reset_password` |
-| GET | `/auth/sso/status` | `sso_public.sso_status` |
-| POST | `/email/unsubscribe/<token>` | `public_email.unsubscribe_post` |
-| POST | `/email/webhooks/ses` | `public_email.ses_webhook` |
-| GET | `/features` | `general.get_features` |
+None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 
 ## Declared public surface
 
 | Endpoint | Reason |
 | --- | --- |
-| `auth.login` | Credential exchange; rate-limited. |
-| `auth.refresh` | Refresh-token exchange; authenticated by the refresh token itself. |
-| `auth.register` | Account self-registration; rate-limited. _(not currently routed)_ |
-| `general.health` | Liveness probe for Railway/compose healthcheck; no data returned. _(not currently routed)_ |
-| `general.healthz` | Liveness probe alias used by the container HEALTHCHECK. |
-| `general.index` | Service banner / version string. _(not currently routed)_ |
-| `general.metrics` | Operational counters; must not expose per-tenant data. _(not currently routed)_ |
-| `general.readyz` | Readiness probe; reports dependency reachability only. |
-| `mfa.mfa_verify_login` | Second factor for a partially authenticated login. _(not currently routed)_ |
-| `public_email.track_click` | Email click redirect; unauthenticated by design. _(not currently routed)_ |
-| `public_email.track_open` | Email open pixel; unauthenticated by design. _(not currently routed)_ |
-| `public_email.unsubscribe` | One-click unsubscribe; token-authenticated, no session. |
-| `sso_public.sso_callback` | IdP assertion consumption endpoint. |
-| `sso_public.sso_login` | Initiates the IdP redirect. |
-| `sso_public.sso_metadata` | Public SSO/SP metadata document. _(not currently routed)_ |
-| `static` | Static asset serving. |
+| `auth.forgot_password` | Reset initiation. Rate-limited 5/min, uniform response so addresses cannot be enumerated, and the link origin comes from config, not the Host header. |
+| `auth.login` | Credential exchange. Rate-limited 10/min; MFA evaluation fails closed. |
+| `auth.reset_password` | Authenticated by the hashed single-use reset token. Rate-limited 5/min; bumps the session epoch so pre-reset sessions die. |
+| `feature_flags.sdk_endpoint` | IN-HANDLER AUTH: requires an active, project-bound SDK key (hashed at rest) via X-SDK-Key. Rate-limited 60/min. Not reachable anonymously. |
+| `general.get_features` | Boolean module on/off flags the SPA needs before login. Exposes which modules exist, never their contents. |
+| `general.healthz` | Liveness probe used by the container HEALTHCHECK. Returns {'status':'ok'}. |
+| `general.home` | Serves the static landing template. No data. |
+| `general.readyz` | Readiness probe. Reports dependency reachability only, no detail. |
+| `mfa.mfa_login_verify` | Second factor. Authenticated by a purpose-scoped short-lived challenge token; rate-limited 10/min with lockout. |
+| `public_email.ses_webhook` | IN-HANDLER AUTH: SNS signature verified against a host-pinned AWS signing certificate, bound to SNS_TOPIC_ARN, with a message-age limit. See tests/test_sns_webhook_trust.py. |
+| `public_email.unsubscribe` | IN-HANDLER AUTH: opaque per-subscriber unsubscribe token. RFC 8058 GET target. |
+| `public_email.unsubscribe_post` | IN-HANDLER AUTH: opaque per-subscriber unsubscribe token. RFC 8058 POST target. |
+| `sso_public.sso_callback` | IdP code-exchange endpoint. Validates the signed state and nonce. |
+| `sso_public.sso_login` | Initiates the IdP redirect. Signed, expiring state parameter. |
+| `sso_public.sso_status` | Reports only whether SSO is enabled plus its display name and login URL. |
+| `static` | Flask static asset serving; ships only files under app/static. |
 
 ## Full route table
 

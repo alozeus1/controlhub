@@ -44,25 +44,50 @@ STEPUP_DECORATORS = {"require_elevation", "require_elevated_permission", "requir
 # Decorators that add throttling.
 LIMIT_DECORATORS = {"limit"}
 
-# Routes that are intentionally reachable without an authenticated principal.
-# Every entry needs a reason. Adding to this list is a security decision.
+# Routes that are intentionally reachable without an authentication *decorator*.
+# Every entry needs a reason, and where a route authenticates inside the handler
+# instead, the reason names the mechanism — those are not really public, they just
+# cannot be recognised from the decorator stack. Adding an entry is a security
+# decision and should be reviewed as one.
 PUBLIC_ALLOWLIST = {
-    "general.health": "Liveness probe for Railway/compose healthcheck; no data returned.",
-    "general.healthz": "Liveness probe alias used by the container HEALTHCHECK.",
-    "general.readyz": "Readiness probe; reports dependency reachability only.",
-    "general.index": "Service banner / version string.",
-    "general.metrics": "Operational counters; must not expose per-tenant data.",
-    "auth.register": "Account self-registration; rate-limited.",
-    "auth.login": "Credential exchange; rate-limited.",
-    "auth.refresh": "Refresh-token exchange; authenticated by the refresh token itself.",
-    "mfa.mfa_verify_login": "Second factor for a partially authenticated login.",
-    "sso_public.sso_metadata": "Public SSO/SP metadata document.",
-    "sso_public.sso_login": "Initiates the IdP redirect.",
-    "sso_public.sso_callback": "IdP assertion consumption endpoint.",
-    "public_email.track_open": "Email open pixel; unauthenticated by design.",
-    "public_email.track_click": "Email click redirect; unauthenticated by design.",
-    "public_email.unsubscribe": "One-click unsubscribe; token-authenticated, no session.",
-    "static": "Static asset serving.",
+    # ── Genuinely anonymous ──────────────────────────────────────────────────
+    "general.home": "Serves the static landing template. No data.",
+    "general.healthz": "Liveness probe used by the container HEALTHCHECK. Returns {'status':'ok'}.",
+    "general.readyz": "Readiness probe. Reports dependency reachability only, no detail.",
+    "general.get_features": (
+        "Boolean module on/off flags the SPA needs before login. Exposes which modules "
+        "exist, never their contents."
+    ),
+    "static": "Flask static asset serving; ships only files under app/static.",
+    # ── Pre-authentication steps of the login flow ───────────────────────────
+    "auth.login": "Credential exchange. Rate-limited 10/min; MFA evaluation fails closed.",
+    "auth.forgot_password": (
+        "Reset initiation. Rate-limited 5/min, uniform response so addresses cannot be "
+        "enumerated, and the link origin comes from config, not the Host header."
+    ),
+    "auth.reset_password": (
+        "Authenticated by the hashed single-use reset token. Rate-limited 5/min; bumps the "
+        "session epoch so pre-reset sessions die."
+    ),
+    "mfa.mfa_login_verify": (
+        "Second factor. Authenticated by a purpose-scoped short-lived challenge token; "
+        "rate-limited 10/min with lockout."
+    ),
+    "sso_public.sso_status": "Reports only whether SSO is enabled plus its display name and login URL.",
+    "sso_public.sso_login": "Initiates the IdP redirect. Signed, expiring state parameter.",
+    "sso_public.sso_callback": "IdP code-exchange endpoint. Validates the signed state and nonce.",
+    # ── Authenticated inside the handler ─────────────────────────────────────
+    "feature_flags.sdk_endpoint": (
+        "IN-HANDLER AUTH: requires an active, project-bound SDK key (hashed at rest) via "
+        "X-SDK-Key. Rate-limited 60/min. Not reachable anonymously."
+    ),
+    "public_email.ses_webhook": (
+        "IN-HANDLER AUTH: SNS signature verified against a host-pinned AWS signing "
+        "certificate, bound to SNS_TOPIC_ARN, with a message-age limit. See "
+        "tests/test_sns_webhook_trust.py."
+    ),
+    "public_email.unsubscribe": "IN-HANDLER AUTH: opaque per-subscriber unsubscribe token. RFC 8058 GET target.",
+    "public_email.unsubscribe_post": "IN-HANDLER AUTH: opaque per-subscriber unsubscribe token. RFC 8058 POST target.",
 }
 
 

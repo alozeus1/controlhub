@@ -166,7 +166,31 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
 
-  # 16. Deployment configuration validation
+  # 17. Authenticated-surface gate. Fails when a route is reachable without an
+  # authentication decorator and is not in PUBLIC_ALLOWLIST with a reason, and
+  # when the committed endpoint inventory has drifted from the live URL map.
+  endpoint-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.10" }
+      - run: pip install -r requirements.txt
+      - name: No unreviewed public routes
+        env:
+          SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
+          FLASK_APP: wsgi.py
+        run: python scripts/dump_endpoint_inventory.py --check
+      - name: Committed endpoint inventory is current
+        env:
+          SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
+          FLASK_APP: wsgi.py
+        run: |
+          python scripts/dump_endpoint_inventory.py
+          git diff --exit-code -- docs/security/endpoint-inventory.md \
+            || { echo "::error::docs/security/endpoint-inventory.md is stale; regenerate and commit it."; exit 1; }
+
+  # 18. Deployment configuration validation
   deploy-config:
     runs-on: ubuntu-latest
     steps:
