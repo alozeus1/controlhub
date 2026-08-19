@@ -1,3 +1,4 @@
+import os
 from html import escape as html_escape
 
 from flask import Blueprint, request, jsonify, current_app
@@ -25,6 +26,41 @@ except ImportError:
 auth_bp = Blueprint("auth", __name__)
 
 
+def _reset_link_base() -> str:
+    """
+    Resolve the canonical origin for password-reset links.
+
+    Never derived from the request. `request.host_url` reads the client-supplied
+    Host header, and nginx here uses a catch-all `server_name _` while forwarding
+    `Host $host`, so an attacker could POST /auth/forgot-password for a victim's
+    address with `Host: evil.example.com` and the victim would receive a genuine
+    ControlHub email whose reset link — and therefore the single-use token —
+    points at the attacker. That is account takeover with one unauthenticated
+    request, so the origin comes from configuration only.
+
+    UI_BASE_URL wins when set (the link targets the SPA route /ui/reset-password);
+    otherwise PUBLIC_BASE_URL, which config.py always defines.
+    """
+    base = (os.environ.get("UI_BASE_URL")
+            or current_app.config.get("PUBLIC_BASE_URL")
+            or os.environ.get("PUBLIC_BASE_URL")
+            or "")
+    base = base.rstrip("/")
+    if not base:
+        # Refuse to fall back to the Host header. Better a loud misconfiguration
+        # than a silently attacker-controlled reset link.
+        current_app.logger.error(
+            "Cannot build a password-reset link: set UI_BASE_URL or PUBLIC_BASE_URL."
+        )
+        return ""
+    if "localhost" in base and os.environ.get("FLASK_ENV", "").lower() in ("production", "prod", "staging"):
+        current_app.logger.error(
+            "Password-reset links point at %s in a deployed environment; "
+            "set UI_BASE_URL/PUBLIC_BASE_URL to the real public origin.", base
+        )
+    return base
+
+
 def _send_reset_email(email, reset_url, text_body):
     """
     Deliver the password-reset mail. Prefers Amazon SES (transactional identity);
@@ -34,8 +70,8 @@ def _send_reset_email(email, reset_url, text_body):
     configured or every attempt failed (caller then logs the dev fallback).
     """
     subject = "ControlHub — Password Reset"
-    # reset_url embeds request.host_url, which derives from the client-supplied
-    # Host header — escape before it goes into an attribute rather than trusting it.
+    # reset_url comes from configuration (see _reset_link_base), not the request.
+    # Still escaped before it lands in an href attribute.
     safe_url = html_escape(reset_url, quote=True)
     html_body = (
         "<p>Hello,</p>"
@@ -253,7 +289,12 @@ def forgot_password():
         db.session.add(token_obj)
         db.session.commit()
 
-        reset_url = f"{request.host_url.rstrip('/')}/ui/reset-password?token={raw_token}"
+        base = _reset_link_base()
+        if not base:
+            # Do not leak whether the address exists, and do not mail a link we
+            # cannot build safely.
+            return jsonify({"message": "If this email exists, a reset link has been sent"}), 200
+        reset_url = f"{base}/ui/reset-password?token={raw_token}"
         text_body = (
             f"Hello,\n\nClick the link below to reset your password:\n\n"
             f"{reset_url}\n\n"
