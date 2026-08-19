@@ -145,7 +145,7 @@ jobs:
           format: cyclonedx
           output: controlhub-api.sbom.cdx.json
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: controlhub-api-sbom
           path: controlhub-api.sbom.cdx.json
