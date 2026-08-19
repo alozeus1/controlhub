@@ -9,12 +9,13 @@ else is needed to continue.
 | --- | --- |
 | Branch | `security-gauntlet-controlhub` |
 | Baseline | `d3a4298` — carried-over zero-trust phase 1–4 work, unmodified |
-| Head | `dbe109d` (last control commit `c68f3be`) |
+| Head | merged with `origin/main`; the six controls are on `main` as `51dfce8` (PR #30) |
 | Controls landed | 6 |
 | Suite | 335 passing (264 at baseline) |
 | Local gates | flake8 clean; `dump_endpoint_inventory.py --check` exit 0 |
 | Not run locally | pip-audit, npm audit, gitleaks, Trivy, PostgreSQL migration replay, container build — CI-only |
-| Deployed | **Nothing.** No merge, no deploy, no key rotation, no production config change |
+| Merged | Code controls: **yes**, via PR #30 into `main`. Artifacts: pending this PR |
+| Deployed | **Nothing.** No deploy, no key rotation, no production config change |
 
 ## Branch history note
 

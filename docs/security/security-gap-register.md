@@ -3,6 +3,12 @@
 Branch `security-gauntlet-controlhub`, baseline `d3a4298`.
 Severity uses OWASP-style qualitative ranking: Critical / High / Medium / Low.
 
+> **Commit references.** The six controls reached `main` as the single squash
+> commit `51dfce8` (PR #30), which merged while this branch was still open. The
+> per-control hashes below are from the `security-gauntlet-controlhub` branch
+> history and are useful for reading one control in isolation; on `main` they are
+> all one commit.
+
 ## Closed in this pass
 
 ### GAP-01 — SNS signing-certificate host bypass ⇒ arbitrary SES event forgery

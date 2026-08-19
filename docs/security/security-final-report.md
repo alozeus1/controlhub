@@ -1,11 +1,14 @@
 # ControlHub — Security Final Report
 
-Branch `security-gauntlet-controlhub` · baseline `d3a4298` · head `2b39721`
-Six controls, no schema migration, nothing deployed. Three further commits on
-the branch (`f9af41c`, `075e8bf`, `2222084`) came from a concurrent process and
-are not part of this pass — see the branch-history note in
-[security-loop-state.md](security-loop-state.md). The full gauntlet was re-run
-after they landed.
+Branch `security-gauntlet-controlhub`, baseline `d3a4298`.
+Six controls, no schema migration, nothing deployed.
+
+**The six code controls are already on `main`** as squash commit `51dfce8`
+(PR #30), which merged while this branch was still open. This branch now carries
+only the security artifacts in `docs/security/`. Three further commits in the
+branch history (`f9af41c`, `075e8bf`, `2222084`) came from a concurrent process
+and are not part of this pass — see the branch-history note in
+[security-loop-state.md](security-loop-state.md).
 
 ---
 
@@ -51,7 +54,7 @@ that fact.
 
 ## 2. Validation performed
 
-| Gate | Baseline `d3a4298` | Head `c68f3be` |
+| Gate | Baseline `d3a4298` | After the six controls |
 | --- | --- | --- |
 | `pytest tests/ -q` | 264 passed | **335 passed** |
 | flake8 (CI selection) | **FAIL — 4 findings** | pass |

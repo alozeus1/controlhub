@@ -4,6 +4,12 @@ Scope: the deployed ControlHub API, worker, SPA and their AWS dependencies.
 Baselines: OWASP Top 10:2025, OWASP API Security Top 10:2023, ASVS L2,
 NIST SP 800-207.
 
+> **Commit references.** The six controls reached `main` as the single squash
+> commit `51dfce8` (PR #30), which merged while this branch was still open. The
+> per-control hashes below are from the `security-gauntlet-controlhub` branch
+> history and are useful for reading one control in isolation; on `main` they are
+> all one commit.
+
 ## 1. Assets, by classification
 
 | Class | Assets |

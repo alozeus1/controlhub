@@ -3,6 +3,12 @@
 Branch `security-gauntlet-controlhub`. Baseline commit `d3a4298`
 (in-flight zero-trust phase 1–4 work, carried over unchanged).
 
+> **Commit references.** The six controls reached `main` as the single squash
+> commit `51dfce8` (PR #30), which merged while this branch was still open. The
+> per-control hashes below are from the `security-gauntlet-controlhub` branch
+> history and are useful for reading one control in isolation; on `main` they are
+> all one commit.
+
 ## 1. Architecture as deployed
 
 | Layer | Reality | Notes |
@@ -98,7 +104,9 @@ unchanged by this pass except for the added `endpoint-surface` job.
 ## 6. Rollback point
 
 Every control is a single revertible commit; none carries a schema migration or a
-required configuration change.
+required configuration change. On `main` the six are squashed into `51dfce8`
+(PR #30) — see [deployment-and-rollback.md](deployment-and-rollback.md) for the
+revert commands that apply there.
 
 ```
 c68f3be  app-level CSP + HSTS

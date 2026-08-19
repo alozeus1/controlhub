@@ -1,8 +1,15 @@
 # ControlHub — Deployment and Rollback
 
-Applies to the six commits on `security-gauntlet-controlhub` above baseline
-`d3a4298`. **Nothing here has been deployed. Nothing here is authorized to be
-deployed.**
+Applies to the six controls of this pass, which are on `main` as squash commit
+`51dfce8` (PR #30). **Nothing here has been deployed. Nothing here is authorized
+to be deployed.**
+
+> **Commit references.** The six controls reached `main` as the single squash
+> commit `51dfce8` (PR #30), which merged while this branch was still open. The
+> per-control hashes below are from the `security-gauntlet-controlhub` branch
+> history and are useful for reading one control in isolation; on `main` they are
+> all one commit.
+
 
 ## 1. What is being shipped
 
@@ -73,29 +80,37 @@ Roll back immediately on any of:
 
 ## 5. Rollback procedure
 
-Each control is one commit with no schema and no state. Revert individually,
-smallest blast radius first:
+No control carries a schema change or persistent state, so every rollback is a
+code revert plus a redeploy of `web` and `worker` from the same commit.
+
+**On `main`,** all six controls are the single squash commit `51dfce8`. There is no
+way to revert one control without the others from that commit alone:
 
 ```bash
-# a single control
-git revert c68f3be          # app-level headers
-git revert 2852b59          # quotas
-git revert 3289820          # reset-link origin
-git revert fe7ccb5          # SNS hardening
-
-# the whole pass, keeping the carried-over baseline work
-git revert --no-commit c68f3be 2852b59 28b549d 3289820 d1c6e5e fe7ccb5
-git commit -m "revert: security gauntlet pass"
+git revert -m 1 51dfce8        # reverts the whole pass
 ```
 
-Then redeploy `web` and `worker` from the same reverted commit.
+**To roll back one control only,** cherry-pick its revert from the branch history,
+where each control is a separate commit:
 
-**Order matters if `SNS_TOPIC_ARN` was the problem:** reverting `fe7ccb5` restores
-the permissive behaviour and re-opens GAP-01 and GAP-03. Prefer fixing the ARN.
-Treat reverting that commit as an incident, not a routine rollback.
+```bash
+git revert --no-commit c68f3be   # app-level CSP + HSTS
+git revert --no-commit 2852b59   # per-identity quotas
+git revert --no-commit 3289820   # reset-link origin
+git revert --no-commit fe7ccb5   # SNS webhook hardening
+git revert --no-commit 28b549d   # endpoint inventory + CI gate
+git commit -m "revert: <control name>"
+```
 
-Header and quota reverts are safe and independent. Reverting `28b549d` removes a
-CI gate only.
+Prefer the single-control form: the blast radius of each is independent.
+
+**Order and severity.** Header and quota reverts are safe and independent.
+Reverting `28b549d` removes a CI gate only, with no runtime effect.
+
+**Reverting `fe7ccb5` re-opens GAP-01 and GAP-03** — the SNS signing-certificate
+host bypass and the `SubscribeURL` SSRF. If inbound SES events are being refused,
+the cause is almost always a wrong or missing `SNS_TOPIC_ARN`; fix the ARN. Treat
+reverting that commit as an incident decision, not a routine rollback.
 
 ## 6. Observation window
 
