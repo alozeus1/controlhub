@@ -34,6 +34,51 @@ def get_ses_config() -> dict:
     }
 
 
+def get_transactional_config() -> dict:
+    """
+    Sender identity for transactional mail (password resets, notifications).
+
+    Kept separate from the campaign identity on purpose: marketing volume and
+    transactional delivery should not share a reputation or a configuration set,
+    so a campaign complaint spike cannot stop password-reset email going out.
+    Falls back to the campaign identity when the transactional vars are unset.
+    """
+    cfg = get_ses_config()
+    return {
+        **cfg,
+        "from_address": os.environ.get("SES_TRANSACTIONAL_FROM_ADDRESS") or cfg["from_address"],
+        "from_name": os.environ.get("SES_TRANSACTIONAL_FROM_NAME") or "Web Forx ControlHub",
+        "configuration_set": (
+            os.environ.get("SES_TRANSACTIONAL_CONFIGURATION_SET") or cfg["configuration_set"]
+        ),
+        "reply_to": os.environ.get("SES_REPLY_TO_ADDRESS") or None,
+    }
+
+
+# ─── Sender identity allowlist ────────────────────────────────────────────────
+
+def get_allowed_sender_domains() -> set:
+    """
+    Domains this deployment is permitted to send as, from
+    SES_ALLOWED_SENDER_DOMAINS (comma-separated).
+
+    An empty value means "no local restriction" — SES still rejects unverified
+    identities, but the app will not pre-screen. Set it in production so a bad
+    SES_FROM_ADDRESS fails loudly here rather than as an opaque SES error.
+    """
+    raw = os.environ.get("SES_ALLOWED_SENDER_DOMAINS", "")
+    return {d.strip().lower().lstrip("@") for d in raw.split(",") if d.strip()}
+
+
+def sender_domain_allowed(address: str) -> bool:
+    """Exact-match the From domain against the allowlist (no implicit subdomains)."""
+    allowed = get_allowed_sender_domains()
+    if not allowed:
+        return True
+    domain = (address or "").rsplit("@", 1)[-1].strip().lower()
+    return bool(domain) and domain in allowed
+
+
 def build_ses_client():
     """Build a boto3 SESv2 client honoring the provider toggle."""
     cfg = get_ses_config()
@@ -86,7 +131,9 @@ class SESResult:
 
 def send_email(to_address: str, subject: str, html_body: str,
                from_address: Optional[str] = None, from_name: Optional[str] = None,
-               reply_to: Optional[str] = None, headers: Optional[dict] = None) -> SESResult:
+               reply_to: Optional[str] = None, headers: Optional[dict] = None,
+               text_body: Optional[str] = None,
+               configuration_set: Optional[str] = None) -> SESResult:
     """
     Send a single email via SESv2. Attaches the configuration set (so SES emits
     delivery/open/click/bounce events) and List-Unsubscribe headers for
@@ -98,6 +145,15 @@ def send_email(to_address: str, subject: str, html_body: str,
     from_address = from_address or cfg["from_address"]
     from_name = from_name or cfg["from_name"]
     sender = f"{from_name} <{from_address}>" if from_name else from_address
+    config_set = configuration_set or cfg["configuration_set"]
+
+    # Fail before the API call if the sender is outside the verified-domain
+    # allowlist — an unverified From is a configuration error, not a send error.
+    if not sender_domain_allowed(from_address):
+        msg = (f"Sender domain not allowed for {from_address}; "
+               f"permitted: {sorted(get_allowed_sender_domains())}")
+        logger.error(msg)
+        return SESResult(None, f"SenderDomainNotAllowed: {msg}")
 
     if not cfg["sending_enabled"]:
         logger.info("SES_SENDING_ENABLED=false — dry run, not sending to %s", to_address)
@@ -107,10 +163,15 @@ def send_email(to_address: str, subject: str, html_body: str,
     # yet implemented / pro feature"), but it DOES implement classic SESv1. Use v1
     # locally so the pipeline is verifiable end to end; production uses SESv2.
     if cfg["provider"] == "localstack":
-        return _send_via_ses_v1(to_address, subject, html_body, sender, reply_to, cfg)
+        return _send_via_ses_v1(to_address, subject, html_body, sender, reply_to,
+                                {**cfg, "configuration_set": config_set}, text_body)
 
     # SESv2 raw headers must be passed via the Content -> Simple -> Headers list.
     header_list = [{"Name": k, "Value": v} for k, v in (headers or {}).items()]
+
+    body = {"Html": {"Data": html_body, "Charset": "UTF-8"}}
+    if text_body:
+        body["Text"] = {"Data": text_body, "Charset": "UTF-8"}
 
     request = {
         "FromEmailAddress": sender,
@@ -118,7 +179,7 @@ def send_email(to_address: str, subject: str, html_body: str,
         "Content": {
             "Simple": {
                 "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {"Html": {"Data": html_body, "Charset": "UTF-8"}},
+                "Body": body,
             }
         },
     }
@@ -127,8 +188,8 @@ def send_email(to_address: str, subject: str, html_body: str,
         request["Content"]["Simple"]["Headers"] = header_list
     if reply_to:
         request["ReplyToAddresses"] = [reply_to]
-    if cfg["configuration_set"]:
-        request["ConfigurationSetName"] = cfg["configuration_set"]
+    if config_set:
+        request["ConfigurationSetName"] = config_set
 
     try:
         client = build_ses_client()
@@ -149,16 +210,20 @@ def send_email(to_address: str, subject: str, html_body: str,
         return SESResult(None, str(exc))
 
 
-def _send_via_ses_v1(to_address, subject, html_body, sender, reply_to, cfg) -> SESResult:
+def _send_via_ses_v1(to_address, subject, html_body, sender, reply_to, cfg,
+                     text_body=None) -> SESResult:
     """Send using the classic SESv1 API (LocalStack-compatible dev path)."""
     try:
         client = build_ses_v1_client()
+        body = {"Html": {"Data": html_body, "Charset": "UTF-8"}}
+        if text_body:
+            body["Text"] = {"Data": text_body, "Charset": "UTF-8"}
         kwargs = {
             "Source": sender,
             "Destination": {"ToAddresses": [to_address]},
             "Message": {
                 "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {"Html": {"Data": html_body, "Charset": "UTF-8"}},
+                "Body": body,
             },
         }
         if reply_to:
@@ -172,6 +237,33 @@ def _send_via_ses_v1(to_address, subject, html_body, sender, reply_to, cfg) -> S
         return SESResult(None, f"{code or 'ClientError'}: {exc}")
     except Exception as exc:  # pragma: no cover
         return SESResult(None, str(exc))
+
+
+def send_transactional_email(to_address: str, subject: str, html_body: str,
+                             text_body: Optional[str] = None,
+                             reply_to: Optional[str] = None) -> SESResult:
+    """
+    Send operational mail (password resets, account notifications) using the
+    transactional sender identity and configuration set.
+
+    Same failure contract as send_email(): never raises, returns SESResult.
+    """
+    cfg = get_transactional_config()
+    return send_email(
+        to_address=to_address,
+        subject=subject,
+        html_body=html_body,
+        text_body=text_body,
+        from_address=cfg["from_address"],
+        from_name=cfg["from_name"],
+        reply_to=reply_to or cfg["reply_to"],
+        configuration_set=cfg["configuration_set"],
+    )
+
+
+def transactional_ses_configured() -> bool:
+    """True when this deployment has an explicit SES transactional sender set."""
+    return bool(os.environ.get("SES_TRANSACTIONAL_FROM_ADDRESS"))
 
 
 def get_send_quota() -> dict:

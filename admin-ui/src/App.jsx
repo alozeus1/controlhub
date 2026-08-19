@@ -58,6 +58,7 @@ import Campaigns from "./pages/campaigns/Campaigns";
 import CampaignDetail from "./pages/campaigns/CampaignDetail";
 import EmailSettings from "./pages/campaigns/EmailSettings";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ElevationGate from "./components/ElevationGate";
 import Settings from "./pages/Settings";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
@@ -67,6 +68,8 @@ export default function App() {
   return (
     <ErrorBoundary>
     <FeaturesProvider>
+      {/* Mounted once: any 403 ELEVATION_REQUIRED anywhere opens this prompt. */}
+      <ElevationGate />
       <BrowserRouter>
         <Routes>
           {/* Public Landing Page */}

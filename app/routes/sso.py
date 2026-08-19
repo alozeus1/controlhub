@@ -16,11 +16,11 @@ import secrets as pysecrets
 from urllib.parse import urlencode
 
 from flask import Blueprint, request, jsonify, redirect, current_app
-from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
+from flask_jwt_extended import decode_token
 
 from app.extensions import db
 from app.models import User, SsoConfig
-from app.permissions import require_permission
+from app.permissions import require_elevated_permission
 from app.services.secret_crypto import encrypt_secret, decrypt_secret
 from app.services.safe_http import safe_get, safe_post, assert_public_url
 from app.utils.audit import log_action
@@ -49,13 +49,13 @@ def _discovery(cfg):
 # ─── Admin configuration ──────────────────────────────────────────────────────
 
 @sso_bp.get("/sso/config")
-@require_permission("manage_sso")
+@require_elevated_permission("manage_sso")
 def get_sso_config():
     return jsonify(SsoConfig.get().to_dict())
 
 
 @sso_bp.put("/sso/config")
-@require_permission("manage_sso")
+@require_elevated_permission("manage_sso")
 def update_sso_config():
     data = request.get_json() or {}
     cfg = SsoConfig.get()
@@ -65,7 +65,7 @@ def update_sso_config():
     if "enabled" in data:
         cfg.enabled = bool(data["enabled"])
     if data.get("client_secret"):
-        cfg.client_secret_enc = encrypt_secret(data["client_secret"])
+        cfg.client_secret_enc = encrypt_secret(data["client_secret"], purpose="sso_client_secret")
     if "claim_role_map" in data and isinstance(data["claim_role_map"], dict):
         cfg.claim_role_map = data["claim_role_map"]
     if "allowed_domains" in data:
@@ -80,7 +80,7 @@ def update_sso_config():
 
 
 @sso_bp.post("/sso/test")
-@require_permission("manage_sso")
+@require_elevated_permission("manage_sso")
 def test_sso_discovery():
     """Validate that the discovery URL resolves and exposes required endpoints."""
     cfg = SsoConfig.get()
@@ -151,7 +151,7 @@ def sso_callback():
 
     try:
         doc = _discovery(cfg)
-        secret = decrypt_secret(cfg.client_secret_enc) if cfg.client_secret_enc else ""
+        secret = decrypt_secret(cfg.client_secret_enc, purpose="sso_client_secret") if cfg.client_secret_enc else ""
         token_res = safe_post(doc["token_endpoint"], expect_json=True, data={
             "grant_type": "authorization_code",
             "code": code,
@@ -211,8 +211,8 @@ def sso_callback():
     if not user.is_active:
         return _fail_redirect("account_disabled")
 
-    access_token = create_access_token(identity=str(user.id))
-    refresh_token = create_refresh_token(identity=str(user.id))
+    from app.services.session_security import issue_token_pair
+    access_token, refresh_token, _ = issue_token_pair(user)
     log_action("sso.login", actor=user, target_type="user", target_id=user.id, target_label=email)
     # Hand tokens to the SPA via URL fragment (not sent to servers/logs).
     frag = urlencode({"access_token": access_token, "refresh_token": refresh_token})

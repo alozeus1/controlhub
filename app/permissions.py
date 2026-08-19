@@ -130,3 +130,63 @@ def require_permission(permission_key):
             return fn(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def require_elevation(permission_key):
+    """
+    Decorator: require a live just-in-time grant for `permission_key`.
+
+    Checks *only* elevation — stack it under whichever gate already establishes
+    eligibility (`require_role` or `require_permission`), so role-gated and
+    permission-gated endpoints can both be covered without duplicating logic:
+
+        @secrets_bp.post("/secrets/<int:secret_id>/reveal")
+        @require_role("admin")            # eligibility
+        @require_elevation("manage_secrets")   # activation
+
+    A no-op unless the key is listed in JIT_ELEVATED_PERMISSIONS, so enabling
+    this is a config change rather than a redeploy.
+    """
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            from app.services import privilege
+
+            if not privilege.elevation_required(permission_key):
+                return fn(*args, **kwargs)
+
+            actor = getattr(request, "current_user", None)
+            if actor is None:
+                # Elevation is a human control; there is no principal to bind a
+                # grant to if an outer decorator did not establish one.
+                return jsonify({"error": "Authentication required",
+                                "code": "AUTH_REQUIRED"}), 401
+
+            grant = privilege.active_grant(
+                actor.id, permission_key,
+                session_family=privilege.current_session_family(),
+            )
+            if grant is None:
+                return jsonify({
+                    "error": f"This action requires elevated access to '{permission_key}'. "
+                             "Request elevation, then retry.",
+                    "code": "ELEVATION_REQUIRED",
+                    "permission_key": permission_key,
+                }), 403
+
+            request.privilege_grant = grant
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                # Recorded after the fact so a failed action still shows up as
+                # an attempt against the grant.
+                privilege.record_use(grant)
+        return wrapper
+    return decorator
+
+
+def require_elevated_permission(permission_key):
+    """`require_permission` + `require_elevation` for permission-gated endpoints."""
+    def decorator(fn):
+        return require_permission(permission_key)(require_elevation(permission_key)(fn))
+    return decorator

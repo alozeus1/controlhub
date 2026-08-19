@@ -1,7 +1,7 @@
+from html import escape as html_escape
+
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
-    create_access_token,
-    create_refresh_token,
     jwt_required,
     get_jwt_identity,
     get_jwt,
@@ -9,7 +9,12 @@ from flask_jwt_extended import (
 from app.models import User, PasswordResetToken
 from app.extensions import db, limiter, mail
 from app.utils.rbac import require_active_user
-from app.utils.audit import log_login, log_logout
+from app.utils.audit import log_login, log_logout, log_action
+from app.services.session_security import (
+    issue_token_pair,
+    consume_refresh_token,
+    bump_session_epoch,
+)
 
 try:
     from flask_mail import Message as MailMessage
@@ -18,6 +23,47 @@ except ImportError:
     _mail_available = False
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _send_reset_email(email, reset_url, text_body):
+    """
+    Deliver the password-reset mail. Prefers Amazon SES (transactional identity);
+    falls back to SMTP when SES is not configured for this deployment.
+
+    Returns True if a transport accepted the message, False if none was
+    configured or every attempt failed (caller then logs the dev fallback).
+    """
+    subject = "ControlHub — Password Reset"
+    # reset_url embeds request.host_url, which derives from the client-supplied
+    # Host header — escape before it goes into an attribute rather than trusting it.
+    safe_url = html_escape(reset_url, quote=True)
+    html_body = (
+        "<p>Hello,</p>"
+        "<p>Click the link below to reset your password:</p>"
+        f'<p><a href="{safe_url}">Reset your password</a></p>'
+        f"<p>This link expires in "
+        f"{current_app.config.get('PASSWORD_RESET_EXPIRES_MINUTES', 60)} minutes.</p>"
+        "<p>If you did not request a password reset, ignore this email.</p>"
+    )
+
+    from app.services import email_ses
+
+    if email_ses.transactional_ses_configured():
+        result = email_ses.send_transactional_email(
+            to_address=email, subject=subject, html_body=html_body, text_body=text_body,
+        )
+        if result.ok:
+            return True
+        current_app.logger.error(f"SES reset email failed for {email}: {result.error}")
+
+    if _mail_available and current_app.config.get("MAIL_SERVER") not in (None, "localhost"):
+        try:
+            mail.send(MailMessage(subject=subject, recipients=[email], body=text_body))
+            return True
+        except Exception as e:
+            current_app.logger.error(f"Failed to send reset email to {email}: {e}")
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -58,8 +104,7 @@ def login():
             }), 200
         # Org policy may require enrollment before full access is granted.
         if mfa_required_for(user):
-            access_token = create_access_token(identity=str(user.id))
-            refresh_token = create_refresh_token(identity=str(user.id))
+            access_token, refresh_token, _ = issue_token_pair(user)
             log_login(user, success=True)
             return jsonify({
                 "access_token": access_token,
@@ -67,12 +112,21 @@ def login():
                 "user": user.to_dict(),
                 "mfa_enrollment_required": True,
             }), 200
-    except Exception:
-        # Never let the MFA layer block a valid login if it errors.
-        pass
+    except Exception as exc:
+        # FAIL CLOSED. An error here previously fell through to issuing full
+        # tokens, silently downgrading every MFA-protected account to
+        # password-only for the duration of the fault. Refusing the login is the
+        # correct trade for an internal tool, and matches the deliberate
+        # fail-closed choice already made for JWT revocation (app/__init__.py).
+        current_app.logger.error(
+            "MFA evaluation failed for user_id=%s; denying login: %s", user.id, exc
+        )
+        return jsonify({
+            "error": "Sign-in is temporarily unavailable. Please try again shortly.",
+            "code": "MFA_UNAVAILABLE",
+        }), 503
 
-    access_token = create_access_token(identity=str(user.id))
-    refresh_token = create_refresh_token(identity=str(user.id))
+    access_token, refresh_token, _ = issue_token_pair(user)
     log_login(user, success=True)
 
     return jsonify({
@@ -93,8 +147,31 @@ def refresh():
     if not user or not user.is_active:
         return jsonify({"error": "User not found or disabled"}), 401
 
-    new_access = create_access_token(identity=identity)
-    return jsonify({"access_token": new_access}), 200
+    claims = get_jwt()
+    family = claims.get("family")
+
+    # Rotate: this refresh token is spent. If it was already spent, someone is
+    # replaying a captured token — kill the family and make both parties
+    # re-authenticate rather than letting the attacker ride the session.
+    if not consume_refresh_token(claims.get("jti"), family):
+        log_action(
+            action="auth.refresh_token_reuse",
+            actor=user,
+            target_type="user",
+            target_id=user.id,
+            target_label=user.email,
+            details={"family": family},
+        )
+        return jsonify({
+            "error": "Your session is no longer valid. Please sign in again.",
+            "code": "TOKEN_REUSE_DETECTED",
+        }), 401
+
+    new_access, new_refresh, _ = issue_token_pair(user, family=family)
+    return jsonify({
+        "access_token": new_access,
+        "refresh_token": new_refresh,
+    }), 200
 
 
 # ---------------------------------------------------------------------------
@@ -177,23 +254,14 @@ def forgot_password():
         db.session.commit()
 
         reset_url = f"{request.host_url.rstrip('/')}/ui/reset-password?token={raw_token}"
+        text_body = (
+            f"Hello,\n\nClick the link below to reset your password:\n\n"
+            f"{reset_url}\n\n"
+            f"This link expires in {expires} minutes.\n\n"
+            "If you did not request a password reset, ignore this email."
+        )
 
-        if _mail_available and current_app.config.get("MAIL_SERVER") not in (None, "localhost"):
-            try:
-                msg = MailMessage(
-                    subject="ControlHub — Password Reset",
-                    recipients=[email],
-                    body=(
-                        f"Hello,\n\nClick the link below to reset your password:\n\n"
-                        f"{reset_url}\n\n"
-                        f"This link expires in {expires} minutes.\n\n"
-                        "If you did not request a password reset, ignore this email."
-                    ),
-                )
-                mail.send(msg)
-            except Exception as e:
-                current_app.logger.error(f"Failed to send reset email to {email}: {e}")
-        else:
+        if not _send_reset_email(email, reset_url, text_body):
             # Log the reset URL for development environments
             current_app.logger.info(f"[DEV] Password reset URL for {email}: {reset_url}")
 
@@ -231,6 +299,10 @@ def reset_password():
     token_obj.used_at = datetime.utcnow()
     db.session.commit()
 
+    # A reset is how an account is recovered after compromise, so every session
+    # that existed before it must die — including the attacker's.
+    bump_session_epoch(user, "password_reset")
+
     return jsonify({"message": "Password reset successfully"}), 200
 
 
@@ -261,4 +333,14 @@ def change_password():
     user.set_password(new_password)
     db.session.commit()
 
-    return jsonify({"message": "Password changed successfully"}), 200
+    # Retire every session that predates the new password — a stolen token must
+    # not survive the change made to lock the attacker out. The caller gets a
+    # fresh pair back so the tab they are sitting in stays signed in.
+    bump_session_epoch(user, "password_change")
+    access_token, refresh_token, _ = issue_token_pair(user)
+
+    return jsonify({
+        "message": "Password changed successfully",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    }), 200

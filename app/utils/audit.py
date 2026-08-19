@@ -9,10 +9,16 @@ from app.models import AuditLog, User
 
 
 def get_client_ip():
-    """Get client IP address, handling proxies."""
+    """
+    Client IP for audit attribution.
+
+    Deliberately reads only `remote_addr`, never X-Forwarded-For directly: the
+    header is set by anyone who can reach the app, so parsing it here would let
+    an attacker forge the source IP in the very record you would investigate
+    with. ProxyFix (see app/__init__.py) rewrites remote_addr from the number of
+    proxy hops we actually trust, which is the safe way to get the real client.
+    """
     try:
-        if request.headers.get("X-Forwarded-For"):
-            return request.headers.get("X-Forwarded-For").split(",")[0].strip()
         return request.remote_addr
     except RuntimeError:
         return "127.0.0.1"
@@ -71,6 +77,15 @@ def log_action(
         ip_address=get_client_ip(),
         user_agent=get_user_agent(),
     )
+
+    # Chain this row to the previous one so a later deletion or edit is
+    # detectable. created_at is part of the digest, so set it before sealing
+    # rather than letting the column default fill it in after.
+    from datetime import datetime
+    from app.services.audit_chain import seal
+    if audit_entry.created_at is None:
+        audit_entry.created_at = datetime.utcnow()
+    seal(audit_entry)
 
     db.session.add(audit_entry)
     db.session.commit()

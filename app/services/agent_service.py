@@ -12,10 +12,7 @@ from app.services.agent_tools import (
     generate_doc,
     generate_markdown,
     generate_xlsx,
-    publish_to_drive,
-    publish_to_sheet,
     query_module_rows,
-    read_artifact_bytes,
     resolve_requested_fields,
     sha256_hex,
     store_artifact,
@@ -35,6 +32,47 @@ def _redact_filters(filters):
         else:
             safe[key] = value
     return safe
+
+
+DAILY_EXPORT_ROW_BUDGET_DEFAULT = 5000
+
+
+def rows_exported_last_24h(actor_id):
+    """Rows this actor has already queued for export in the trailing 24 hours."""
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    from app.extensions import db
+    from app.models import AgentRequest
+
+    since = datetime.utcnow() - timedelta(hours=24)
+    total = (db.session.query(func.coalesce(func.sum(AgentRequest.row_count), 0))
+             .filter(AgentRequest.requester_user_id == actor_id,
+                     AgentRequest.created_at >= since,
+                     AgentRequest.status != "failed")
+             .scalar())
+    return int(total or 0)
+
+
+def check_daily_export_budget(actor_id, row_count, budget):
+    """
+    Hard stop on cumulative export volume per actor per day.
+
+    Approval thresholds are per-request, so on their own they let an attacker
+    slice one large exfiltration into many small compliant ones. This caps the
+    total. Returns (allowed, detail).
+    """
+    if budget <= 0:  # 0 or negative disables the cap
+        return True, None
+
+    already = rows_exported_last_24h(actor_id)
+    if already + row_count > budget:
+        return False, {
+            "code": "EXPORT_BUDGET_EXCEEDED",
+            "rows_last_24h": already,
+            "requested_rows": row_count,
+            "daily_budget": budget,
+        }
+    return True, {"rows_last_24h": already, "daily_budget": budget}
 
 
 def evaluate_approval_requirements(template, row_count, destination_type, row_threshold):
@@ -98,41 +136,16 @@ def _load_destination(destination_type, destination_ref):
 
 
 def publish_generated_artifact(artifact, destination, actor=None, mode="overwrite"):
-    """Publish an already-generated artifact to an allow-listed destination."""
-    if not destination or not destination.is_active:
-        raise ValueError("Destination not found or inactive")
+    """
+    Publish an already-generated artifact to an allow-listed destination.
 
-    agent_request = artifact.request
-    if not agent_request:
-        raise ValueError("Artifact request not found")
-    if agent_request.template_id not in (destination.allowed_template_ids or []):
-        raise ValueError("template_id is not allowed for selected destination")
+    Thin wrapper over the egress chokepoint — every validation, the deployment
+    allowlist, the TOCTOU fingerprint check, and the audit event all live in
+    app/services/agent_egress.py so there is exactly one way data leaves.
+    """
+    from app.services.agent_egress import deliver
 
-    artifact_bytes = read_artifact_bytes(artifact.s3_bucket, artifact.s3_key)
-    if destination.destination_type == "google_drive_folder":
-        result = publish_to_drive(artifact_bytes, artifact, destination)
-    elif destination.destination_type == "google_sheet_range":
-        result = publish_to_sheet(artifact_bytes, artifact, destination, mode=mode)
-    else:
-        raise ValueError("Unsupported destination type")
-
-    log_action(
-        action="agent.artifact.published_external",
-        actor=actor,
-        target_type="generated_artifact",
-        target_id=artifact.id,
-        target_label=artifact.filename,
-        details={
-            "agent_request_id": artifact.agent_request_id,
-            "destination_id": destination.id,
-            "destination_type": destination.destination_type,
-            "template_id": agent_request.template_id,
-            "row_count": artifact.row_count,
-            "sha256": artifact.sha256,
-            "result": result,
-        },
-    )
-    return result
+    return deliver(artifact, destination, actor=actor, mode=mode)
 
 
 def process_agent_request(agent_request, executor=None):
@@ -167,6 +180,13 @@ def process_agent_request(agent_request, executor=None):
         selected_fields = resolve_requested_fields(filters, template.allowed_fields or [])
         rows = enforce_template_fields(rows, template.allowed_fields or [], selected_fields=selected_fields)
         rows = apply_masking(rows, template.masking_rules or {})
+
+        # Re-check the projection immediately before it becomes bytes. Field
+        # scope is the line between an approved report and a data leak; it
+        # should not rest on one upstream call staying correct forever.
+        from app.services.agent_egress import assert_scope_integrity
+        assert_scope_integrity(rows, template)
+
         row_count = len(rows)
 
         payload, mime_type, extension = _select_output(rows, agent_request.output_type, agent_request.template_id)

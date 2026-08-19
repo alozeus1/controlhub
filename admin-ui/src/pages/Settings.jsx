@@ -6,6 +6,7 @@ import { RoleBadge } from "../components/ui/Badge";
 import { useToast } from "../components/ui/Toast";
 import MfaCard from "../components/MfaCard";
 import api from "../utils/api";
+import { setTokens } from "../utils/auth";
 import "./Settings.css";
 
 const TABS = ["Profile", "Security", "System"];
@@ -66,10 +67,15 @@ export default function Settings() {
 
     setPwLoading(true);
     try {
-      await api.post("/auth/change-password", {
+      const res = await api.post("/auth/change-password", {
         current_password: currentPassword,
         new_password: newPassword,
       });
+      // Changing the password retires every pre-existing session server-side.
+      // Adopt the fresh pair so this tab stays signed in.
+      if (res?.data?.access_token) {
+        setTokens(res.data.access_token, res.data.refresh_token);
+      }
       toast.success("Password changed successfully");
       setCurrentPassword("");
       setNewPassword("");

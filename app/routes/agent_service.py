@@ -8,8 +8,14 @@ from app.models import AgentRequest, ApprovalRequest, ExternalDestination, Gener
 from app.services.agent_service import (
     APPROVAL_ROW_THRESHOLD_DEFAULT,
     evaluate_approval_requirements,
+    check_daily_export_budget,
+    DAILY_EXPORT_ROW_BUDGET_DEFAULT,
     process_agent_request,
     publish_generated_artifact,
+)
+from app.services.agent_egress import (
+    EgressDenied,
+    destination_fingerprint,
 )
 from app.services.agent_templates import get_template, list_templates
 from app.services.agent_tools import (
@@ -490,6 +496,26 @@ def create_agent_request():
     rows = apply_masking(rows, template.masking_rules or {})
     row_count = len(rows)
 
+    # Cumulative volume cap, checked before the per-request approval rules: a
+    # sliced exfiltration passes every per-request gate but not this one.
+    budget = int(current_app.config.get("AGENT_EXPORT_DAILY_ROW_BUDGET",
+                                        DAILY_EXPORT_ROW_BUDGET_DEFAULT))
+    within_budget, budget_detail = check_daily_export_budget(actor.id, row_count, budget)
+    if not within_budget:
+        log_action(
+            action="agent.request.budget_exceeded",
+            actor=actor,
+            target_type="agent_request",
+            target_id=None,
+            target_label=f"{module_scope}:{template_id}",
+            details=budget_detail,
+        )
+        return jsonify({
+            "error": "Daily export limit reached. Contact an administrator.",
+            "code": "EXPORT_BUDGET_EXCEEDED",
+            "details": budget_detail,
+        }), 429
+
     threshold = int(current_app.config.get("AGENT_EXPORT_APPROVAL_ROW_THRESHOLD", APPROVAL_ROW_THRESHOLD_DEFAULT))
     approval_eval = evaluate_approval_requirements(
         template=template,
@@ -509,6 +535,12 @@ def create_agent_request():
         destination_ref=str(destination.id) if destination else None,
         status="pending",
         approval_required=approval_eval["requires_approval"],
+        row_count=row_count,
+        # Pin where this request is allowed to send. Checked again at publish
+        # time, so repointing the destination after approval is refused.
+        destination_fingerprint=(
+            destination_fingerprint(destination) if destination else None
+        ),
     )
     db.session.add(agent_request)
     db.session.commit()
@@ -566,7 +598,10 @@ def create_agent_request():
                 "approval_request": approval_request.to_dict(),
             }), 202
 
-    result = process_agent_request(agent_request, executor=actor)
+    try:
+        result = process_agent_request(agent_request, executor=actor)
+    except EgressDenied as exc:
+        return jsonify({"error": str(exc), "code": exc.code, "details": exc.details}), 403
     return jsonify({
         "message": "Agent request completed",
         "request": result["request"],
@@ -791,6 +826,11 @@ def _publish_artifact(artifact_id, destination_type, mode="overwrite"):
 
     try:
         result = publish_generated_artifact(artifact, destination, actor=actor, mode=mode)
+    except EgressDenied as exc:
+        # A chokepoint refusal is a policy decision, not a bad request — surface
+        # its code so the caller can tell "not allow-listed" from "destination
+        # was repointed since approval".
+        return jsonify({"error": str(exc), "code": exc.code, "details": exc.details}), 403
     except ValueError as exc:
         return _validation_error([str(exc)])
 

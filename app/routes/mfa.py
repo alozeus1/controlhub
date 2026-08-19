@@ -19,7 +19,7 @@ import qrcode.image.svg
 from io import BytesIO
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
+from flask_jwt_extended import create_access_token, decode_token
 
 from app.extensions import db, limiter
 from app.models import User, UserMfa, OrgSettings
@@ -101,7 +101,7 @@ def _verify_totp(row, code):
     if not row.secret_enc:
         return False
     try:
-        secret = decrypt_secret(row.secret_enc)
+        secret = decrypt_secret(row.secret_enc, purpose="mfa_totp")
     except Exception:
         return False
     return pyotp.TOTP(secret).verify((code or "").strip(), valid_window=1)
@@ -159,7 +159,7 @@ def mfa_setup():
         return jsonify({"error": "MFA is already enabled. Disable it first to re-enroll."}), 409
 
     secret = pyotp.random_base32()
-    row.secret_enc = encrypt_secret(secret)
+    row.secret_enc = encrypt_secret(secret, purpose="mfa_totp")
     row.pending = True
     db.session.commit()
 
@@ -275,8 +275,8 @@ def mfa_login_verify():
                             "code": "MFA_LOCKED"}), 429
         return jsonify({"error": "Invalid authentication code"}), 401
 
-    access_token = create_access_token(identity=str(user.id))
-    refresh_token = create_refresh_token(identity=str(user.id))
+    from app.services.session_security import issue_token_pair
+    access_token, refresh_token, _ = issue_token_pair(user)
     log_action("mfa.login_verified", actor=user, target_type="user", target_id=user.id,
                target_label=user.email)
     return jsonify({"access_token": access_token, "refresh_token": refresh_token,

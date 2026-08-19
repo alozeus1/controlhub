@@ -15,6 +15,7 @@ success without contacting the provider.
 """
 import logging
 from datetime import datetime
+from html import escape as html_escape
 from flask import current_app
 from app.utils.audit import log_action
 
@@ -279,8 +280,31 @@ def send_email_notification(email, template_type, context):
 
     delivered = False
     error = None
+
+    # Preferred transport: Amazon SES on a verified Web Forx domain. Resend is
+    # kept as a fallback for deployments that have not moved to SES yet.
+    if _config("EMAIL_NOTIFICATIONS_ENABLED", False):
+        try:
+            from app.services import email_ses
+            if email_ses.transactional_ses_configured():
+                result = email_ses.send_transactional_email(
+                    to_address=email,
+                    subject=subject,
+                    html_body="<pre style=\"font-family:inherit\">"
+                              f"{html_escape(body)}</pre>",
+                    text_body=body,
+                )
+                if result.ok:
+                    delivered = True
+                else:
+                    error = result.error
+                    logger.warning("SES notification failed for %s: %s", email, result.error)
+        except Exception as exc:
+            error = str(exc)
+            logger.warning("SES notification error for %s: %s", email, exc)
+
     api_key = _config("RESEND_API_KEY")
-    if _config("EMAIL_NOTIFICATIONS_ENABLED", False) and api_key:
+    if not delivered and _config("EMAIL_NOTIFICATIONS_ENABLED", False) and api_key:
         try:
             import requests
             resp = requests.post(

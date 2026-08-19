@@ -26,6 +26,10 @@ class User(db.Model):
     role = db.Column(db.String(50), default="user", nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     notifications_enabled = db.Column(db.Boolean, default=True, nullable=False)
+    # Bumped to retire every token issued before now (disable, role change,
+    # password change). Compared against the token's session_epoch claim on
+    # each request — see app/services/session_security.py.
+    session_epoch = db.Column(db.Integer, default=0, nullable=False, server_default="0")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -681,6 +685,14 @@ class AuditLog(db.Model):
     user_agent = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
+    # Tamper-evidence. Each row commits to its own content and to the previous
+    # row's hash, so deleting or editing history breaks the chain at a point a
+    # verifier can find. This does not *prevent* a DB-level rewrite — it makes
+    # one detectable, which is the property that matters when the attacker is
+    # assumed to already be inside. See app/services/audit_chain.py.
+    prev_hash = db.Column(db.String(64), nullable=True)
+    row_hash = db.Column(db.String(64), nullable=True, index=True)
+
     # Relationship to actor
     actor = db.relationship("User", backref="audit_logs", foreign_keys=[actor_id])
 
@@ -793,10 +805,10 @@ class EnvConfig(db.Model):
         ciphertext returns None rather than leaking or raising.
         """
         v = self.value
-        if v and isinstance(v, str) and v.startswith("fernet:v1:"):
-            from app.services.secret_crypto import decrypt_secret
+        from app.services.secret_crypto import decrypt_secret, is_encrypted
+        if is_encrypted(v):
             try:
-                return decrypt_secret(v)
+                return decrypt_secret(v, purpose="env_config")
             except Exception:
                 return None
         return v
@@ -816,18 +828,98 @@ def _encrypt_env_config_secret(mapper, connection, target):
     Encrypt secret-designated EnvConfig values at rest (audit A-7).
 
     Runs on insert/update flush, where both is_secret and value are known.
-    Idempotent: values already carrying the 'fernet:v1:' sentinel are left
+    Idempotent: values already carrying any ciphertext sentinel are left
     untouched, so re-flushes and the backfill migration never double-encrypt.
+    The check is backend-agnostic — testing only for 'fernet:v1:' would
+    re-encrypt KMS values on every update.
     Non-secret values are stored as plaintext (unchanged behavior).
     """
     if target.is_secret and target.value and isinstance(target.value, str):
-        if not target.value.startswith("fernet:v1:"):
-            from app.services.secret_crypto import encrypt_secret
-            target.value = encrypt_secret(target.value)
+        from app.services.secret_crypto import encrypt_secret, is_encrypted
+        if not is_encrypted(target.value):
+            target.value = encrypt_secret(target.value, purpose="env_config")
 
 
 sa_event.listen(EnvConfig, "before_insert", _encrypt_env_config_secret)
 sa_event.listen(EnvConfig, "before_update", _encrypt_env_config_secret)
+
+
+class PrivilegeGrant(db.Model):
+    """
+    A time-boxed activation of one permission the user is *eligible* for.
+
+    Splits eligibility (the role) from activation (this row), so a stolen admin
+    session buys read-only access until the attacker also defeats a live second
+    factor. Grants expire on their own; nothing renews without a new reason.
+
+    `session_family` binds the grant to the refresh-token family that requested
+    it. Without that, an attacker holding a *different* stolen token for the same
+    user would ride an elevation the legitimate operator just activated.
+    """
+    __tablename__ = "privilege_grant"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    permission_key = db.Column(db.String(64), nullable=False, index=True)
+    reason = db.Column(db.Text, nullable=False)
+    session_family = db.Column(db.String(64), nullable=True, index=True)
+    granted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    revoked_reason = db.Column(db.String(255), nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    used_count = db.Column(db.Integer, default=0, nullable=False, server_default="0")
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+
+    user = db.relationship("User", foreign_keys=[user_id], backref="privilege_grants")
+    approver = db.relationship("User", foreign_keys=[approved_by_id])
+
+    @property
+    def is_active(self):
+        now = datetime.utcnow()
+        return self.revoked_at is None and self.expires_at > now
+
+    def seconds_remaining(self):
+        if not self.is_active:
+            return 0
+        return max(0, int((self.expires_at - datetime.utcnow()).total_seconds()))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "user_email": self.user.email if self.user else None,
+            "permission_key": self.permission_key,
+            "reason": self.reason,
+            "granted_at": self.granted_at.isoformat() if self.granted_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
+            "revoked_reason": self.revoked_reason,
+            "approved_by": self.approver.email if self.approver else None,
+            "used_count": self.used_count,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "active": self.is_active,
+            "seconds_remaining": self.seconds_remaining(),
+        }
+
+
+class SystemState(db.Model):
+    """
+    Small durable key/value store for operational cursors.
+
+    Currently holds the audit-mirror high-water mark. Deliberately a table rather
+    than Redis: the mark must survive a cache flush, because losing it either
+    replays the whole audit log to the sink or — if it were reset forward —
+    silently skips rows that were never mirrored.
+    """
+    __tablename__ = "system_state"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow, nullable=False)
 
 
 class FeatureFlagSdkKey(db.Model):
@@ -1670,6 +1762,14 @@ class AgentRequest(db.Model):
     approved_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
+    # Rows this request would export. Recorded so a per-actor daily budget can be
+    # enforced across requests — otherwise one large exfiltration can be sliced
+    # into many under-threshold ones that each pass approval on their own.
+    row_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    # Digest of where this request was approved to send data (destination type +
+    # resolved target id). Re-checked at publish time so a destination that is
+    # repointed after approval cannot redirect an already-blessed export.
+    destination_fingerprint = db.Column(db.String(64), nullable=True)
 
     requester = db.relationship("User", foreign_keys=[requester_user_id], backref="agent_requests")
     approver = db.relationship("User", foreign_keys=[approved_by], backref="approved_agent_requests")
