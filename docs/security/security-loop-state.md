@@ -16,6 +16,20 @@ else is needed to continue.
 | Not run locally | pip-audit, npm audit, gitleaks, Trivy, PostgreSQL migration replay, container build — CI-only |
 | Deployed | **Nothing.** No merge, no deploy, no key rotation, no production config change |
 
+## Branch history note
+
+Three commits on this branch were made by a concurrent process outside this pass
+and are **not** part of the six controls:
+
+| Commit | What it is |
+| --- | --- |
+| `f9af41c` "unrelated work" | An early snapshot of this pass's own in-progress files (`email_ses.py`, `campaigns.py`, the gauntlet prompt, the inventory script and its output), committed under a placeholder message before the corresponding control commits were written. Content is included in the controls below; only the commit message is misleading. |
+| `075e8bf` | Dependency CVE patches — `cryptography` 49→50, `react-router`. Independent work. |
+| `2222084` | CI gate fixes — `Dockerfile.api`, one assertion in `tests/test_zero_trust_phase2.py`. Independent work. |
+
+The full gauntlet was re-run at `2b39721` after these landed: pytest 335 passed,
+flake8 clean, endpoint-surface gate exit 0 with no inventory drift.
+
 ## Phase status
 
 | Phase | State |

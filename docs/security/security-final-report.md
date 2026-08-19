@@ -1,7 +1,11 @@
 # ControlHub — Security Final Report
 
-Branch `security-gauntlet-controlhub` · baseline `d3a4298` · head `c68f3be`
-Six controls, six commits, no schema migration, nothing deployed.
+Branch `security-gauntlet-controlhub` · baseline `d3a4298` · head `2b39721`
+Six controls, no schema migration, nothing deployed. Three further commits on
+the branch (`f9af41c`, `075e8bf`, `2222084`) came from a concurrent process and
+are not part of this pass — see the branch-history note in
+[security-loop-state.md](security-loop-state.md). The full gauntlet was re-run
+after they landed.
 
 ---
 
