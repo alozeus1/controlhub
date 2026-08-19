@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, send_file
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.utils.rate_limit import identity_rate_key
 from app.models import AgentRequest, ApprovalRequest, ExternalDestination, GeneratedArtifact, Policy
 from app.services.agent_service import (
     APPROVAL_ROW_THRESHOLD_DEFAULT,
@@ -437,6 +438,7 @@ def get_agent_request(request_id):
 
 
 @agent_bp.post("/agent-requests")
+@limiter.limit("30 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def create_agent_request():
     error = check_feature_enabled()
@@ -611,6 +613,7 @@ def create_agent_request():
 
 
 @agent_bp.post("/agent-requests/<int:request_id>/run")
+@limiter.limit("20 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def run_agent_request(request_id):
     error = check_feature_enabled()
@@ -643,6 +646,7 @@ def run_agent_request(request_id):
 
 
 @agent_bp.post("/generated-artifacts/<int:artifact_id>/presign")
+@limiter.limit("60 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def presign_generated_artifact(artifact_id):
     error = check_feature_enabled()
@@ -724,6 +728,7 @@ def presign_generated_artifact(artifact_id):
 
 
 @agent_bp.get("/generated-artifacts/<int:artifact_id>/download")
+@limiter.limit("120 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def download_generated_artifact(artifact_id):
     error = check_feature_enabled()
@@ -843,6 +848,7 @@ def _publish_artifact(artifact_id, destination_type, mode="overwrite"):
 
 
 @agent_bp.post("/generated-artifacts/<int:artifact_id>/publish/drive")
+@limiter.limit("30 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def publish_artifact_to_drive(artifact_id):
     error = check_feature_enabled()
@@ -852,6 +858,7 @@ def publish_artifact_to_drive(artifact_id):
 
 
 @agent_bp.post("/generated-artifacts/<int:artifact_id>/publish/sheet")
+@limiter.limit("30 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def publish_artifact_to_sheet(artifact_id):
     error = check_feature_enabled()

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app.models import User, Job, AuditLog, ROLE_LEVELS
-from app.extensions import db
+from app.extensions import db, limiter
+from app.utils.rate_limit import identity_rate_key
 from app.utils.rbac import (
     require_role,
     can_manage_user,
@@ -370,6 +371,7 @@ def list_audit_actions():
 
 
 @admin_bp.get("/audit-logs/export")
+@limiter.limit("20 per hour", key_func=identity_rate_key)
 @require_role("viewer")
 def export_audit_logs():
     """Export the (filtered) audit log as CSV. Honors the same filters as the list."""

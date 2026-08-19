@@ -6,6 +6,8 @@ Feature-flagged: FEATURE_INTEGRATIONS
 """
 from flask import Blueprint, jsonify, request, current_app, Response
 
+from app.extensions import limiter
+from app.utils.rate_limit import identity_rate_key
 from app.utils.rbac import require_role
 from app.services.integrations import (
     IntegrationService,
@@ -282,6 +284,7 @@ def create_audit_export():
 
 
 @integrations_bp.post("/audit-exports/<int:job_id>/run")
+@limiter.limit("20 per hour", key_func=identity_rate_key)
 @require_role("admin")
 def run_audit_export(job_id):
     """Run an audit export job and download the result."""
@@ -328,6 +331,7 @@ def delete_audit_export(job_id):
 
 
 @integrations_bp.post("/audit-exports/now")
+@limiter.limit("10 per hour", key_func=identity_rate_key)
 @require_role("admin")
 def export_audit_now():
     """Run an immediate one-time audit export."""

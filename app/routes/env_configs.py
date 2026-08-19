@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.utils.rate_limit import identity_rate_key
 from app.models import EnvProject, EnvConfig
 from app.utils.audit import log_action
 from app.utils.rbac import require_role
@@ -293,6 +294,7 @@ def delete_config(project_id, config_id):
 
 
 @env_configs_bp.get("/env-projects/<int:project_id>/export")
+@limiter.limit("30 per hour", key_func=identity_rate_key)
 @require_role("admin")
 def export_configs(project_id):
     actor = request.current_user

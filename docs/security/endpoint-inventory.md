@@ -12,7 +12,7 @@
 | Posture: role-gated | 171 |
 | Posture: service-or-human | 28 |
 | Requires step-up / elevation | 13 |
-| Carries an explicit rate limit | 11 |
+| Carries an explicit rate limit | 22 |
 
 ## Unregistered public routes
 
@@ -45,9 +45,9 @@ None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/` | `general.home` | PUBLIC | - | - | - |
 | GET | `/admin/agent-requests` | `agent_service.list_agent_requests` | role-gated | - | - | `require_role` |
-| POST | `/admin/agent-requests` | `agent_service.create_agent_request` | role-gated | - | - | `require_role` |
+| POST | `/admin/agent-requests` | `agent_service.create_agent_request` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/agent-requests/<int:request_id>` | `agent_service.get_agent_request` | role-gated | - | - | `require_role` |
-| POST | `/admin/agent-requests/<int:request_id>/run` | `agent_service.run_agent_request` | role-gated | - | - | `require_role` |
+| POST | `/admin/agent-requests/<int:request_id>/run` | `agent_service.run_agent_request` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/agent/status` | `agent_service.agent_status` | role-gated | - | - | `require_role` |
 | GET | `/admin/agent/templates` | `agent_service.list_agent_templates` | role-gated | - | - | `require_role` |
 | GET | `/admin/alert-rules` | `notifications.list_rules` | role-gated | - | - | `require_role` |
@@ -74,11 +74,11 @@ None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 | POST | `/admin/audit-exports` | `integrations.create_audit_export` | role-gated | - | - | `require_role` |
 | DELETE | `/admin/audit-exports/<int:job_id>` | `integrations.delete_audit_export` | role-gated | - | - | `require_role` |
 | GET | `/admin/audit-exports/<int:job_id>` | `integrations.get_audit_export` | role-gated | - | - | `require_role` |
-| POST | `/admin/audit-exports/<int:job_id>/run` | `integrations.run_audit_export` | role-gated | - | - | `require_role` |
-| POST | `/admin/audit-exports/now` | `integrations.export_audit_now` | role-gated | - | - | `require_role` |
+| POST | `/admin/audit-exports/<int:job_id>/run` | `integrations.run_audit_export` | role-gated | - | yes | `limit`, `require_role` |
+| POST | `/admin/audit-exports/now` | `integrations.export_audit_now` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/audit-logs` | `admin.list_audit_logs` | role-gated | - | - | `require_role` |
 | GET | `/admin/audit-logs/actions` | `admin.list_audit_actions` | role-gated | - | - | `require_role` |
-| GET | `/admin/audit-logs/export` | `admin.export_audit_logs` | role-gated | - | - | `require_role` |
+| GET | `/admin/audit-logs/export` | `admin.export_audit_logs` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/certificates` | `certificates.list_certificates` | authenticated | - | - | `require_active_user` |
 | POST | `/admin/certificates` | `certificates.create_certificate` | role-gated | - | - | `require_role` |
 | DELETE | `/admin/certificates/<int:cert_id>` | `certificates.delete_certificate` | role-gated | - | - | `require_role` |
@@ -136,7 +136,7 @@ None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 | POST | `/admin/env-projects/<int:project_id>/configs` | `env_configs.upsert_config` | role-gated | - | - | `require_role` |
 | DELETE | `/admin/env-projects/<int:project_id>/configs/<int:config_id>` | `env_configs.delete_config` | role-gated | - | - | `require_role` |
 | PUT | `/admin/env-projects/<int:project_id>/configs/<int:config_id>` | `env_configs.update_config` | role-gated | - | - | `require_role` |
-| GET | `/admin/env-projects/<int:project_id>/export` | `env_configs.export_configs` | role-gated | - | - | `require_role` |
+| GET | `/admin/env-projects/<int:project_id>/export` | `env_configs.export_configs` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/external-destinations` | `agent_service.list_external_destinations` | role-gated | - | - | `require_role` |
 | POST | `/admin/external-destinations` | `agent_service.create_external_destination` | role-gated | - | - | `require_role` |
 | PATCH | `/admin/external-destinations/<int:destination_id>` | `agent_service.update_external_destination` | role-gated | - | - | `require_role` |
@@ -150,10 +150,10 @@ None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 | POST | `/admin/feature-flags/sdk-keys` | `feature_flags.create_sdk_key` | role-gated | - | - | `require_role` |
 | DELETE | `/admin/feature-flags/sdk-keys/<int:key_id>` | `feature_flags.revoke_sdk_key` | role-gated | - | - | `require_role` |
 | GET | `/admin/feature-flags/sdk/<project>` | `feature_flags.sdk_endpoint` | PUBLIC | - | yes | `limit` |
-| GET | `/admin/generated-artifacts/<int:artifact_id>/download` | `agent_service.download_generated_artifact` | role-gated | - | - | `require_role` |
-| POST | `/admin/generated-artifacts/<int:artifact_id>/presign` | `agent_service.presign_generated_artifact` | role-gated | - | - | `require_role` |
-| POST | `/admin/generated-artifacts/<int:artifact_id>/publish/drive` | `agent_service.publish_artifact_to_drive` | role-gated | - | - | `require_role` |
-| POST | `/admin/generated-artifacts/<int:artifact_id>/publish/sheet` | `agent_service.publish_artifact_to_sheet` | role-gated | - | - | `require_role` |
+| GET | `/admin/generated-artifacts/<int:artifact_id>/download` | `agent_service.download_generated_artifact` | role-gated | - | yes | `limit`, `require_role` |
+| POST | `/admin/generated-artifacts/<int:artifact_id>/presign` | `agent_service.presign_generated_artifact` | role-gated | - | yes | `limit`, `require_role` |
+| POST | `/admin/generated-artifacts/<int:artifact_id>/publish/drive` | `agent_service.publish_artifact_to_drive` | role-gated | - | yes | `limit`, `require_role` |
+| POST | `/admin/generated-artifacts/<int:artifact_id>/publish/sheet` | `agent_service.publish_artifact_to_sheet` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/incidents` | `incidents.list_incidents` | authenticated | - | - | `require_active_user` |
 | POST | `/admin/incidents` | `incidents.create_incident` | authenticated | - | - | `require_active_user` |
 | GET | `/admin/incidents/<int:incident_id>` | `incidents.get_incident` | authenticated | - | - | `require_active_user` |
@@ -237,7 +237,7 @@ None. Every public route is declared in `PUBLIC_ALLOWLIST` with a reason.
 | POST | `/admin/people/<int:person_id>/employment` | `people.update_employment` | role-gated | - | - | `require_role` |
 | POST | `/admin/people/<int:person_id>/terminate` | `people.terminate_person` | role-gated | - | - | `require_role` |
 | PATCH | `/admin/people/<int:person_id>/user-role` | `people.change_linked_user_role` | role-gated | - | - | `require_role` |
-| GET | `/admin/people/export/csv` | `people.export_people_csv` | role-gated | - | - | `require_role` |
+| GET | `/admin/people/export/csv` | `people.export_people_csv` | role-gated | - | yes | `limit`, `require_role` |
 | GET | `/admin/people/metadata` | `people.people_metadata` | role-gated | - | - | `require_role` |
 | GET | `/admin/performance/my-reviews` | `performance.my_employee_reviews` | authenticated | - | - | `require_active_user` |
 | GET | `/admin/performance/reviews` | `performance.list_employee_reviews` | role-gated | - | - | `require_role` |
