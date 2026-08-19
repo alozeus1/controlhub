@@ -8,7 +8,7 @@ epoch, the tamper-evident audit chain, and the agent export budget.
 import pytest
 
 from app.extensions import db
-from app.models import AuditLog, User
+from app.models import AuditLog
 from app.services import audit_chain, session_security
 
 

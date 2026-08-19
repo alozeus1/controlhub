@@ -121,7 +121,7 @@ def test_wrong_password_is_rejected_and_audited(client, jit, admin):
 
 def test_elevation_requires_eligibility(client, jit, create_user):
     """Elevation activates a permission the role already implies — it never grants one."""
-    viewer = create_user("viewer@x.com", role="viewer", password=PASSWORD)  # secret-scan:allow - test fixture / parameter name, not a credential
+    create_user("viewer@x.com", role="viewer", password=PASSWORD)  # secret-scan:allow - test fixture / parameter name, not a credential
     headers = _bearer(_login(client, "viewer@x.com"))
 
     resp = client.post("/admin/elevation/request", headers=headers,
