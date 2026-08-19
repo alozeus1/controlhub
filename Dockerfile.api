@@ -1,15 +1,28 @@
 FROM python:3.14-slim
 
 # Runtime deps: postgres client (entrypoint waits for DB), curl (healthcheck).
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client curl \
+# `upgrade` refreshes packages the base image ships but never patches — the
+# util-linux family (CVE-2026-53615) arrives vulnerable in python:3.14-slim.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends postgresql-client curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install pinned dependencies deterministically.
+# Install pinned dependencies deterministically, then drop pip.
+#
+# Nothing at runtime uses pip (see entrypoint.sh), and keeping it keeps its
+# VENDORED msgpack and setuptools, which scan HIGH and cannot be patched — even
+# the latest pip (26.2.1) vendors the affected versions via pip/_vendor. Removing
+# it also denies an attacker with code execution a package manager to pull
+# tooling with. Verified: nothing in the app imports pip, and pkg_resources was
+# already absent from this base image before this change.
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools==83.0.0 wheel==0.47.0 \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && python -m pip uninstall -y pip \
+    && rm -rf /usr/local/lib/python3.14/site-packages/pip
 
 # Copy application (build context is trimmed by .dockerignore).
 COPY . .

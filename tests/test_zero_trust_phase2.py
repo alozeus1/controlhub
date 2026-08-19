@@ -146,10 +146,16 @@ def test_env_config_does_not_double_encrypt_under_kms(app, kms, create_user):
     'fernet:v1:' prefix, so a KMS value looked like plaintext and was
     re-encrypted on every update until it was unreadable.
     """
-    from app.models import EnvConfig
+    from app.models import EnvConfig, EnvProject
 
     owner = create_user("envcfg@x.com")
-    row = EnvConfig(project_id=1, environment="prod", key="API_KEY",
+    # Create the parent project rather than assuming id 1: env_config.project_id
+    # is a real foreign key, and Postgres enforces it even though SQLite does not.
+    project = EnvProject(name="zt-test", created_by_id=owner.id)
+    db.session.add(project)
+    db.session.flush()
+
+    row = EnvConfig(project_id=project.id, environment="prod", key="API_KEY",
                     value="s3cret", is_secret=True, created_by_id=owner.id)
     db.session.add(row)
     db.session.commit()
