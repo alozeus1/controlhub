@@ -64,7 +64,7 @@ python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.2
 qrcode==8.2
-redis==5.3.1
+redis==7.4.1
 requests==2.34.2
 rq==2.10.0
 s3transfer==0.19.1

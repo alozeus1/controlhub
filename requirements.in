@@ -7,7 +7,7 @@ python-dotenv
 PyJWT
 werkzeug
 boto3
-redis<6
+redis<8
 rq
 Flask-JWT-Extended==4.7.4
 requests
